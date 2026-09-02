@@ -97,6 +97,8 @@ class _HomePageState extends State<HomePage> {
                   _WelcomeHeader(userName: widget.user.name),
                   const SizedBox(height: 28),
                   _TodayOvertimeCard(onStart: _startOvertime),
+                  const SizedBox(height: 16),
+                  const _ActivityHint(),
                   const SizedBox(height: 30),
                   _DraftSection(
                     controller: _draftController,
@@ -115,8 +117,6 @@ class _HomePageState extends State<HomePage> {
                     errorMessage: _yearSummaryController.errorMessage,
                     onRetry: _loadYearSummary,
                   ),
-                  const SizedBox(height: 28),
-                  const _ActivityHint(),
                 ]),
               ),
             ),
@@ -800,58 +800,85 @@ class _YearStats extends StatelessWidget {
   final YearOvertimeSummary summary;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final stats = [
-        _YearStatData(
-          value: summary.totalOvertime,
-          label: 'Total Lembur',
-          icon: Icons.receipt_long_outlined,
-          tint: const Color(0x33FFFFFF),
-        ),
-        _YearStatData(
-          value: summary.workdayOvertime,
-          label: 'Hari Kerja',
-          icon: Icons.business_center_outlined,
-          tint: const Color(0x2BE7FFF6),
-        ),
-        _YearStatData(
-          value: summary.holidayOvertime,
-          label: 'Hari Libur',
-          icon: Icons.wb_sunny_outlined,
-          tint: const Color(0x33FFF2CB),
-        ),
-      ];
-
-      if (constraints.maxWidth >= 335) {
-        return Row(
-          children: [
-            Expanded(child: _YearStatCard(data: stats[0])),
-            const SizedBox(width: 8),
-            Expanded(child: _YearStatCard(data: stats[1])),
-            const SizedBox(width: 8),
-            Expanded(child: _YearStatCard(data: stats[2])),
-          ],
-        );
-      }
-
-      return Column(
+  Widget build(BuildContext context) => Column(
+    children: [
+      _TotalOvertimeHighlight(total: summary.totalOvertime),
+      const SizedBox(height: 14),
+      Row(
         children: [
-          SizedBox(
-            width: double.infinity,
-            child: _YearStatCard(data: stats[0]),
+          Expanded(
+            child: _YearStatCard(
+              data: _YearStatData(
+                value: summary.workdayOvertime,
+                label: 'Hari Kerja',
+                icon: Icons.business_center_outlined,
+                tint: const Color(0x2BE7FFF6),
+              ),
+            ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(child: _YearStatCard(data: stats[1])),
-              const SizedBox(width: 8),
-              Expanded(child: _YearStatCard(data: stats[2])),
-            ],
+          const SizedBox(width: 8),
+          Expanded(
+            child: _YearStatCard(
+              data: _YearStatData(
+                value: summary.holidayOvertime,
+                label: 'Hari Libur',
+                icon: Icons.wb_sunny_outlined,
+                tint: const Color(0x33FFF2CB),
+              ),
+            ),
           ),
         ],
-      );
-    },
+      ),
+    ],
+  );
+}
+
+class _TotalOvertimeHighlight extends StatelessWidget {
+  const _TotalOvertimeHighlight({required this.total});
+
+  final int total;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Text(
+        '$total',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 42,
+          fontWeight: FontWeight.w800,
+          height: .95,
+          letterSpacing: -1.2,
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Total Lembur',
+              style: Theme.of(context).textTheme.titleSmall
+                  ?.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              'kegiatan tercatat tahun ini',
+              style: TextStyle(
+                color: Color(0xFFEAF6FF),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+      const Icon(
+        Icons.receipt_long_outlined,
+        color: Color(0xFFEAF6FF),
+        size: 23,
+      ),
+    ],
   );
 }
 
