@@ -9,11 +9,7 @@ import '../data/services/location_service.dart';
 import '../data/services/photo_processing_service.dart';
 
 class OvertimeFormController extends ChangeNotifier {
-  OvertimeFormController(
-    this._repository,
-    this._photoService, {
-    this.draft,
-  }) {
+  OvertimeFormController(this._repository, this._photoService, {this.draft}) {
     if (draft != null) {
       activityDate = draft!.activityDate;
       activityName = draft!.activityName;
@@ -40,6 +36,7 @@ class OvertimeFormController extends ChangeNotifier {
   };
   bool isSubmitting = false;
   String? generalError;
+  String? successMessage;
   Map<String, String> errors = {};
 
   bool get canSubmit =>
@@ -131,15 +128,18 @@ class OvertimeFormController extends ChangeNotifier {
     notifyListeners();
     try {
       final photo = switch (mode) {
-        PhotoStampMode.automatic => await _photoService.createAutomaticStamp(picked),
+        PhotoStampMode.automatic => await _photoService.createAutomaticStamp(
+          picked,
+        ),
         PhotoStampMode.manual => await _photoService.createManualStamp(
           source: picked,
           data: manualData!,
         ),
-        PhotoStampMode.existingTimestamp => await _photoService.keepExistingTimestamp(
-          source: picked,
-          timestamp: existingTimestamp!,
-        ),
+        PhotoStampMode.existingTimestamp =>
+          await _photoService.keepExistingTimestamp(
+            source: picked,
+            timestamp: existingTimestamp!,
+          ),
       };
       if (slot == PhotoSlot.activity) {
         activityPhoto = photo;
@@ -170,10 +170,11 @@ class OvertimeFormController extends ChangeNotifier {
 
     isSubmitting = true;
     generalError = null;
+    successMessage = null;
     notifyListeners();
     try {
       if (draft != null) {
-        await _repository.update(
+        successMessage = await _repository.update(
           draft: draft!,
           date: activityDate,
           activityName: activityName.trim(),
@@ -182,7 +183,7 @@ class OvertimeFormController extends ChangeNotifier {
           newCheckoutPhoto: checkoutPhoto,
         );
       } else {
-        await _repository.submit(
+        successMessage = await _repository.submit(
           date: activityDate,
           activityName: activityName.trim(),
           location: location.trim(),
@@ -193,7 +194,8 @@ class OvertimeFormController extends ChangeNotifier {
       return SubmitOutcome.success;
     } on ApiException catch (error) {
       generalError = error.message;
-      if (error.fieldErrors.isNotEmpty) errors = _mapServerErrors(error.fieldErrors);
+      if (error.fieldErrors.isNotEmpty)
+        errors = _mapServerErrors(error.fieldErrors);
       notifyListeners();
       return error.isUnauthenticated
           ? SubmitOutcome.unauthenticated
@@ -210,17 +212,23 @@ class OvertimeFormController extends ChangeNotifier {
 
   Map<String, String> _localErrors() {
     final result = <String, String>{};
-    if (activityName.trim().isEmpty) result['nama_kegiatan'] = 'Nama kegiatan wajib diisi';
-    if (location.trim().isEmpty) result['lokasi_kegiatan'] = 'Lokasi kegiatan wajib diisi';
+    if (activityName.trim().isEmpty)
+      result['nama_kegiatan'] = 'Nama kegiatan wajib diisi';
+    if (location.trim().isEmpty)
+      result['lokasi_kegiatan'] = 'Lokasi kegiatan wajib diisi';
     return result;
   }
 
   Map<String, String> _mapServerErrors(Map<String, List<String>> fieldErrors) {
-    const aliases = {'foto_kegiatan_at': 'foto_kegiatan', 'foto_pulang_at': 'foto_pulang'};
+    const aliases = {
+      'foto_kegiatan_at': 'foto_kegiatan',
+      'foto_pulang_at': 'foto_pulang',
+    };
     final mapped = <String, String>{};
     fieldErrors.forEach((field, messages) {
       final target = aliases[field] ?? field;
-      if (messages.isNotEmpty && !mapped.containsKey(target)) mapped[target] = messages.first;
+      if (messages.isNotEmpty && !mapped.containsKey(target))
+        mapped[target] = messages.first;
     });
     return mapped;
   }

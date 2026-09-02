@@ -7,7 +7,10 @@ import 'core/theme/app_theme.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'features/auth/presentation/auth_controller.dart';
 import 'features/auth/presentation/login_page.dart';
+import 'features/calendar/presentation/calendar_controller.dart';
+import 'features/calendar/presentation/calendar_page.dart';
 import 'features/dashboard/presentation/home_page.dart';
+import 'features/history/presentation/history_page.dart';
 import 'features/overtime/data/models/draft_overtime.dart';
 import 'features/overtime/data/overtime_repository.dart';
 import 'features/overtime/data/services/photo_processing_service.dart';
@@ -82,6 +85,19 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
+  late final CalendarController _calendarController;
+
+  @override
+  void initState() {
+    super.initState();
+    _calendarController = CalendarController(widget.overtimeRepository);
+  }
+
+  @override
+  void dispose() {
+    _calendarController.dispose();
+    super.dispose();
+  }
 
   Future<bool> _openOvertimeForm([DraftOvertime? draft]) async {
     final saved = await Navigator.of(context).push<bool>(
@@ -109,15 +125,16 @@ class _AppShellState extends State<AppShell> {
           onContinue: _openOvertimeForm,
           onSessionExpired: widget.authController.logout,
         ),
-        const _ComingSoonPlaceholder(
-          icon: Icons.calendar_month_rounded,
-          title: 'Kalender segera hadir',
-          message: 'Nantikan tampilan jadwal lembur Anda di sini.',
+        CalendarPage(
+          controller: _calendarController,
+          onSessionExpired: widget.authController.logout,
+          isActive: _selectedIndex == 1,
         ),
-        const _ComingSoonPlaceholder(
-          icon: Icons.history_rounded,
-          title: 'Riwayat segera hadir',
-          message: 'Pengajuan lembur Anda akan tampil di sini.',
+        HistoryPage(
+          repository: widget.overtimeRepository,
+          onEdit: _openOvertimeForm,
+          onSessionExpired: widget.authController.logout,
+          isActive: _selectedIndex == 2,
         ),
       ],
     ),
@@ -161,47 +178,4 @@ class _AppGlyph extends StatelessWidget {
     ),
     child: const Icon(Icons.timelapse_rounded, color: Colors.white, size: 34),
   );
-}
-
-class _ComingSoonPlaceholder extends StatelessWidget {
-  const _ComingSoonPlaceholder({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
-  final IconData icon;
-  final String title, message;
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return SafeArea(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: colors.primaryContainer,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Icon(icon, color: colors.primary, size: 34),
-              ),
-              const SizedBox(height: 20),
-              Text(title, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 8),
-              Text(
-                message,
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

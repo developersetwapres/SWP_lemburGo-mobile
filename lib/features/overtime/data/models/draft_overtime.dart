@@ -12,6 +12,7 @@ class DraftOvertime {
     this.activityPhotoAt,
     this.checkoutPhotoUrl,
     this.checkoutPhotoAt,
+    this.checkoutTime,
   });
 
   final String id;
@@ -24,6 +25,7 @@ class DraftOvertime {
   final DateTime? activityPhotoAt;
   final String? checkoutPhotoUrl;
   final DateTime? checkoutPhotoAt;
+  final DateTime? checkoutTime;
 
   bool get hasActivityPhoto => activityPhotoUrl != null;
   bool get hasCheckoutPhoto => checkoutPhotoUrl != null;
@@ -43,6 +45,7 @@ class DraftOvertime {
       activityPhotoAt: _nullableDate(attributes['foto_kegiatan_at']),
       checkoutPhotoUrl: _remoteUrl(attributes['foto_pulang']),
       checkoutPhotoAt: _nullableDate(attributes['foto_pulang_at']),
+      checkoutTime: _nullableDate(attributes['waktu_pulang']),
     );
   }
 

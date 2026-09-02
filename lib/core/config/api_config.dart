@@ -1,5 +1,7 @@
 abstract final class ApiConfig {
-  static const baseUrl = 'http://10.0.2.2:8000/api';
+  // static const baseUrl = 'http://10.0.2.2:8000/api'; //Pixel 8
+  // static const baseUrl = 'http://10.1.53.20:8000/api';
+  static const baseUrl = 'http://127.0.0.1:8000/api';
   static const connectTimeout = Duration(seconds: 20);
   static const receiveTimeout = Duration(seconds: 30);
 

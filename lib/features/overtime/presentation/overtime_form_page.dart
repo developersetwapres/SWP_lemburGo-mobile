@@ -168,8 +168,10 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
         isDismissible: false,
         enableDrag: false,
         backgroundColor: AppColors.surface,
-        builder: (context) =>
-            _SuccessSheet(onClose: () => Navigator.pop(context)),
+        builder: (context) => _SuccessSheet(
+          message: _controller.successMessage ?? 'Lembur berhasil disimpan.',
+          onClose: () => Navigator.pop(context),
+        ),
       );
       if (mounted) Navigator.of(context).pop(true);
       return;
@@ -318,7 +320,10 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
           photoFile: photo?.file,
           existingImageUrl: photo == null ? existingUrl : null,
           timestampLabel: photo != null
-              ? DateFormat('dd MMM yyyy • HH:mm', 'id_ID').format(photo.timestamp)
+              ? DateFormat(
+                  'dd MMM yyyy • HH:mm',
+                  'id_ID',
+                ).format(photo.timestamp)
               : existingTimestamp == null
               ? null
               : DateFormat(
@@ -775,7 +780,8 @@ class _TimestampFormShell extends StatelessWidget {
 }
 
 class _SuccessSheet extends StatelessWidget {
-  const _SuccessSheet({required this.onClose});
+  const _SuccessSheet({required this.message, required this.onClose});
+  final String message;
   final VoidCallback onClose;
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -799,8 +805,9 @@ class _SuccessSheet extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            'Lembur berhasil disimpan',
+            message,
             style: Theme.of(context).textTheme.titleLarge,
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(

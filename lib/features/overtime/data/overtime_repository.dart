@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../calendar/data/models/calendar_overtime.dart';
+import '../../history/data/models/overtime_history.dart';
 import 'models/draft_overtime.dart';
 import 'models/photo_stamp.dart';
 
@@ -16,14 +18,47 @@ class OvertimeRepository {
       if (rawData is! List) return const [];
       return rawData
           .whereType<Map>()
-          .map((item) => DraftOvertime.fromJson(Map<String, dynamic>.from(item)))
+          .map(
+            (item) => DraftOvertime.fromJson(Map<String, dynamic>.from(item)),
+          )
           .toList();
     } on DioException catch (error) {
       throw _apiClient.exceptionFrom(error);
     }
   }
 
-  Future<void> submit({
+  Future<OvertimeHistory> fetchHistory({int? month}) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/lemburs',
+        queryParameters: month == null ? null : {'bulan': month},
+      );
+      return OvertimeHistory.fromJson(response.data ?? const {});
+    } on DioException catch (error) {
+      throw _apiClient.exceptionFrom(error);
+    }
+  }
+
+  Future<List<CalendarOvertime>> fetchCalendarEntries() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/lemburs/kalender',
+      );
+      final rawData = response.data?['data'];
+      if (rawData is! List) return const [];
+      return rawData
+          .whereType<Map>()
+          .map(
+            (item) =>
+                CalendarOvertime.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .toList();
+    } on DioException catch (error) {
+      throw _apiClient.exceptionFrom(error);
+    }
+  }
+
+  Future<String> submit({
     required DateTime date,
     required String activityName,
     required String location,
@@ -52,14 +87,18 @@ class OvertimeRepository {
       }
       final data = activityPhoto == null && checkoutPhoto == null
           ? fields
-          : FormData.fromMap(fields);
-      await _dio.post<void>('/lemburs', data: data);
+          : _toFormData(fields);
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/lemburs',
+        data: data,
+      );
+      return _messageFromResponse(response.data) ?? 'Lembur berhasil disimpan.';
     } on DioException catch (error) {
       throw _apiClient.exceptionFrom(error);
     }
   }
 
-  Future<void> update({
+  Future<String> update({
     required DraftOvertime draft,
     required DateTime date,
     required String activityName,
@@ -78,7 +117,9 @@ class OvertimeRepository {
           newActivityPhoto,
           'foto_kegiatan',
         );
-        fields['foto_kegiatan_at'] = _formatDateTime(newActivityPhoto.timestamp);
+        fields['foto_kegiatan_at'] = _formatDateTime(
+          newActivityPhoto.timestamp,
+        );
       }
       if (newCheckoutPhoto != null) {
         fields['foto_pulang'] = await _multipartPhoto(
@@ -89,12 +130,32 @@ class OvertimeRepository {
       }
       final data = newActivityPhoto == null && newCheckoutPhoto == null
           ? fields
-          : FormData.fromMap(fields);
-      await _dio.put<void>('/lemburs/${draft.id}', data: data);
+          : _toFormData(fields);
+      final response = await _dio.put<Map<String, dynamic>>(
+        '/lemburs/${draft.id}',
+        data: data,
+      );
+      return _messageFromResponse(response.data) ??
+          'Lembur berhasil diperbarui.';
     } on DioException catch (error) {
       throw _apiClient.exceptionFrom(error);
     }
   }
+
+  FormData _toFormData(Map<String, dynamic> fields) {
+    final formData = FormData();
+    fields.forEach((key, value) {
+      if (value is MultipartFile) {
+        formData.files.add(MapEntry(key, value));
+      } else {
+        formData.fields.add(MapEntry(key, value.toString()));
+      }
+    });
+    return formData;
+  }
+
+  String? _messageFromResponse(Map<String, dynamic>? data) =>
+      data?['message']?.toString();
 
   Future<MultipartFile> _multipartPhoto(StampedPhoto photo, String field) =>
       MultipartFile.fromFile(

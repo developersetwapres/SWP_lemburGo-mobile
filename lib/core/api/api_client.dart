@@ -76,10 +76,13 @@ class ApiClient {
     if (statusCode == 401) {
       return 'Sesi Anda telah berakhir. Silakan masuk kembali.';
     }
+
     if (statusCode == 422) return 'Periksa kembali data yang Anda masukkan.';
+
     if (statusCode != null && statusCode >= 500) {
       return 'Server sedang bermasalah. Coba lagi beberapa saat.';
     }
+
     return 'Terjadi kendala. Silakan coba lagi.';
   }
 }
