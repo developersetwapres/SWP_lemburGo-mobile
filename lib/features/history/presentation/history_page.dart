@@ -111,7 +111,9 @@ class _HistoryPageState extends State<HistoryPage> {
                   _IncomeSummary(
                     totalUpah: _controller.history?.totalUpah ?? 0,
                     month: _controller.selectedMonth,
-                    count: _controller.history?.records.length ?? 0,
+                    totalOvertime: _controller.history?.totalOvertime ?? 0,
+                    workdayOvertime: _controller.history?.workdayOvertime ?? 0,
+                    holidayOvertime: _controller.history?.holidayOvertime ?? 0,
                     isLoading: _controller.isLoading,
                   ),
                   const SizedBox(height: 18),
@@ -156,12 +158,16 @@ class _IncomeSummary extends StatelessWidget {
   const _IncomeSummary({
     required this.totalUpah,
     required this.month,
-    required this.count,
+    required this.totalOvertime,
+    required this.workdayOvertime,
+    required this.holidayOvertime,
     required this.isLoading,
   });
   final num totalUpah;
   final int month;
-  final int count;
+  final int totalOvertime;
+  final int workdayOvertime;
+  final int holidayOvertime;
   final bool isLoading;
 
   @override
@@ -251,10 +257,101 @@ class _IncomeSummary extends StatelessWidget {
               ),
             const SizedBox(height: 8),
             Text(
-              '${_monthName(month)} ${DateTime.now().year} • $count kegiatan lembur',
+              '${_monthName(month)} ${DateTime.now().year} • $totalOvertime kegiatan lembur',
               style: const TextStyle(color: Color(0xFFE3F3FF), fontSize: 13),
             ),
+            const SizedBox(height: 16),
+            if (isLoading)
+              Container(
+                width: double.infinity,
+                height: 45,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .14),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              )
+            else
+              _OvertimeBreakdown(
+                workdayOvertime: workdayOvertime,
+                holidayOvertime: holidayOvertime,
+              ),
           ],
+        ),
+      ],
+    ),
+  );
+}
+
+class _OvertimeBreakdown extends StatelessWidget {
+  const _OvertimeBreakdown({
+    required this.workdayOvertime,
+    required this.holidayOvertime,
+  });
+  final int workdayOvertime;
+  final int holidayOvertime;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: _BreakdownItem(
+          icon: Icons.business_center_outlined,
+          value: workdayOvertime,
+          label: 'Hari kerja',
+        ),
+      ),
+      const SizedBox(width: 9),
+      Expanded(
+        child: _BreakdownItem(
+          icon: Icons.wb_sunny_outlined,
+          value: holidayOvertime,
+          label: 'Hari libur',
+        ),
+      ),
+    ],
+  );
+}
+
+class _BreakdownItem extends StatelessWidget {
+  const _BreakdownItem({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+  final IconData icon;
+  final int value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .14),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: Colors.white.withValues(alpha: .13)),
+    ),
+    child: Row(
+      children: [
+        Icon(icon, color: const Color(0xFFDDF1FF), size: 18),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$value',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                ),
+              ),
+              Text(
+                label,
+                style: const TextStyle(color: Color(0xFFDDF1FF), fontSize: 11),
+              ),
+            ],
+          ),
         ),
       ],
     ),

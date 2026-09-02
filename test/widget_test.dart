@@ -11,6 +11,7 @@ import 'package:kmz_lemburgo_mobile/features/auth/data/models/auth_user.dart';
 import 'package:kmz_lemburgo_mobile/features/calendar/data/models/calendar_overtime.dart';
 import 'package:kmz_lemburgo_mobile/features/dashboard/presentation/home_page.dart';
 import 'package:kmz_lemburgo_mobile/features/overtime/data/models/draft_overtime.dart';
+import 'package:kmz_lemburgo_mobile/features/overtime/data/models/year_overtime_summary.dart';
 import 'package:kmz_lemburgo_mobile/features/overtime/data/overtime_repository.dart';
 
 void main() {
@@ -74,6 +75,22 @@ void main() {
     expect(entry.dateKey, '2026-09-03');
     expect(entry.overtimeId, 3);
   });
+
+  test('uses annual summary totals directly from the API response', () {
+    final summary = YearOvertimeSummary.fromJson({
+      'data': {
+        'lembur_hari_kerja': 3,
+        'lembur_hari_libur': 1,
+        'total_lembur': 4,
+        'total_upah': 250000,
+      },
+    });
+
+    expect(summary.workdayOvertime, 3);
+    expect(summary.holidayOvertime, 1);
+    expect(summary.totalOvertime, 4);
+    expect(summary.totalPay, 250000);
+  });
 }
 
 class _FakeOvertimeRepository extends OvertimeRepository {
@@ -81,6 +98,15 @@ class _FakeOvertimeRepository extends OvertimeRepository {
 
   @override
   Future<List<DraftOvertime>> fetchDrafts() async => const [];
+
+  @override
+  Future<YearOvertimeSummary> fetchYearOvertimeSummary() async =>
+      const YearOvertimeSummary(
+        workdayOvertime: 0,
+        holidayOvertime: 0,
+        totalOvertime: 0,
+        totalPay: 0,
+      );
 }
 
 class _SuccessMessageAdapter implements HttpClientAdapter {

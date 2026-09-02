@@ -125,14 +125,14 @@ class _AppShellState extends State<AppShell> {
           onContinue: _openOvertimeForm,
           onSessionExpired: widget.authController.logout,
         ),
-        CalendarPage(
-          controller: _calendarController,
-          onSessionExpired: widget.authController.logout,
-          isActive: _selectedIndex == 1,
-        ),
         HistoryPage(
           repository: widget.overtimeRepository,
           onEdit: _openOvertimeForm,
+          onSessionExpired: widget.authController.logout,
+          isActive: _selectedIndex == 1,
+        ),
+        CalendarPage(
+          controller: _calendarController,
           onSessionExpired: widget.authController.logout,
           isActive: _selectedIndex == 2,
         ),

@@ -5,6 +5,7 @@ import '../../calendar/data/models/calendar_overtime.dart';
 import '../../history/data/models/overtime_history.dart';
 import 'models/draft_overtime.dart';
 import 'models/photo_stamp.dart';
+import 'models/year_overtime_summary.dart';
 
 class OvertimeRepository {
   OvertimeRepository(this._dio, this._apiClient);
@@ -53,6 +54,17 @@ class OvertimeRepository {
                 CalendarOvertime.fromJson(Map<String, dynamic>.from(item)),
           )
           .toList();
+    } on DioException catch (error) {
+      throw _apiClient.exceptionFrom(error);
+    }
+  }
+
+  Future<YearOvertimeSummary> fetchYearOvertimeSummary() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/lemburs/total-upah',
+      );
+      return YearOvertimeSummary.fromJson(response.data ?? const {});
     } on DioException catch (error) {
       throw _apiClient.exceptionFrom(error);
     }

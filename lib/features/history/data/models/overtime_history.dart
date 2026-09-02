@@ -5,11 +5,17 @@ class OvertimeHistory {
     required this.records,
     required this.month,
     required this.totalUpah,
+    required this.totalOvertime,
+    required this.workdayOvertime,
+    required this.holidayOvertime,
   });
 
   final List<DraftOvertime> records;
   final int month;
   final num totalUpah;
+  final int totalOvertime;
+  final int workdayOvertime;
+  final int holidayOvertime;
 
   factory OvertimeHistory.fromJson(Map<String, dynamic> json) {
     final rawRecords = json['data'];
@@ -21,14 +27,16 @@ class OvertimeHistory {
           ? rawRecords
                 .whereType<Map>()
                 .map(
-                  (item) => DraftOvertime.fromJson(
-                    Map<String, dynamic>.from(item),
-                  ),
+                  (item) =>
+                      DraftOvertime.fromJson(Map<String, dynamic>.from(item)),
                 )
                 .toList()
           : const [],
       month: _month(meta['bulan']),
       totalUpah: _number(meta['total_upah']),
+      totalOvertime: _integer(meta['total_lembur']),
+      workdayOvertime: _integer(meta['lembur_hari_kerja']),
+      holidayOvertime: _integer(meta['lembur_hari_libur']),
     );
   }
 
@@ -43,4 +51,7 @@ class OvertimeHistory {
     if (value is num) return value;
     return num.tryParse(value?.toString() ?? '') ?? 0;
   }
+
+  static int _integer(Object? value) =>
+      int.tryParse(value?.toString() ?? '') ?? 0;
 }
