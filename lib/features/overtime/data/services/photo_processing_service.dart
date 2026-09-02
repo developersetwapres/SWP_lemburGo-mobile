@@ -45,6 +45,31 @@ class PhotoProcessingService {
     mode: PhotoStampMode.manual,
   );
 
+  /// Keeps a photo that already contains its own visual timestamp. The file is
+  /// copied only for lifetime safety; it is never decoded or visually altered.
+  Future<StampedPhoto> keepExistingTimestamp({
+    required XFile source,
+    required DateTime timestamp,
+  }) async {
+    final input = File(source.path);
+    if (await input.length() > 10 * 1024 * 1024) {
+      throw const PhotoProcessingException(
+        'Ukuran foto melebihi 10 MB. Pilih foto dengan ukuran lebih kecil.',
+      );
+    }
+    final directory = await getTemporaryDirectory();
+    final output = await input.copy(
+      '${directory.path}${Platform.pathSeparator}lemburin_${DateTime.now().microsecondsSinceEpoch}${_extension(source.path)}',
+    );
+    return StampedPhoto(
+      file: output,
+      sourceFile: output,
+      timestamp: timestamp,
+      address: const DeviceAddress(road: '', districtCity: '', province: ''),
+      mode: PhotoStampMode.existingTimestamp,
+    );
+  }
+
   Future<StampedPhoto> _stamp({
     required XFile source,
     required DateTime timestamp,
@@ -69,10 +94,16 @@ class PhotoProcessingService {
     }
     return StampedPhoto(
       file: output,
+      sourceFile: File(source.path),
       timestamp: timestamp,
       address: address,
       mode: mode,
     );
+  }
+
+  String _extension(String path) {
+    final index = path.lastIndexOf('.');
+    return index < 0 ? '.jpg' : path.substring(index);
   }
 }
 

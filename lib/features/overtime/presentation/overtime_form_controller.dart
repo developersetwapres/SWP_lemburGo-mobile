@@ -9,26 +9,35 @@ import '../data/services/photo_processing_service.dart';
 
 class OvertimeFormController extends ChangeNotifier {
   OvertimeFormController(this._repository, this._photoService);
+
   final OvertimeRepository _repository;
   final PhotoProcessingService _photoService;
+
   DateTime activityDate = DateTime.now();
   String activityName = '', location = '';
   StampedPhoto? activityPhoto, checkoutPhoto;
-  PhotoSlot? processingSlot;
-  bool isSubmitting = false, showValidation = false;
+  final _photoStates = <PhotoSlot, PhotoInputState>{
+    PhotoSlot.activity: PhotoInputState.empty,
+    PhotoSlot.checkout: PhotoInputState.empty,
+  };
+  bool isSubmitting = false;
   String? generalError;
   Map<String, String> errors = {};
 
   bool get canSubmit =>
       activityName.trim().isNotEmpty &&
       location.trim().isNotEmpty &&
-      activityPhoto != null &&
-      checkoutPhoto != null &&
       !isSubmitting &&
-      processingSlot == null;
+      !_photoStates.values.contains(PhotoInputState.timestampProcessing);
+
   StampedPhoto? photoFor(PhotoSlot slot) =>
       slot == PhotoSlot.activity ? activityPhoto : checkoutPhoto;
-  bool isProcessing(PhotoSlot slot) => processingSlot == slot;
+
+  PhotoInputState stateFor(PhotoSlot slot) =>
+      _photoStates[slot] ?? PhotoInputState.empty;
+
+  bool isProcessing(PhotoSlot slot) =>
+      stateFor(slot) == PhotoInputState.timestampProcessing;
 
   void setActivityName(String value) {
     activityName = value;
@@ -48,32 +57,35 @@ class OvertimeFormController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<XFile?> pickPhoto({
+    required PhotoSlot slot,
+    required ImageSource source,
+  }) async {
+    _photoStates[slot] = PhotoInputState.sourceSelected;
+    notifyListeners();
+    try {
+      final picked = await _photoService.pickImage(source: source);
+      _photoStates[slot] = picked == null
+          ? (photoFor(slot) == null ? PhotoInputState.empty : PhotoInputState.ready)
+          : PhotoInputState.photoSelected;
+      return picked;
+    } catch (_) {
+      _photoStates[slot] = PhotoInputState.error;
+      return null;
+    } finally {
+      notifyListeners();
+    }
+  }
+
   void removePhoto(PhotoSlot slot) {
     if (slot == PhotoSlot.activity) {
       activityPhoto = null;
     } else {
       checkoutPhoto = null;
     }
+    _photoStates[slot] = PhotoInputState.empty;
     _clearError(slot == PhotoSlot.activity ? 'foto_kegiatan' : 'foto_pulang');
     notifyListeners();
-  }
-
-  Future<String?> addPhoto({
-    required PhotoSlot slot,
-    required ImageSource source,
-    required PhotoStampMode mode,
-    ManualTimestampData? manualData,
-  }) async {
-    final picked = await _photoService.pickImage(source: source);
-    if (picked == null) {
-      return null;
-    }
-    return processPickedPhoto(
-      slot: slot,
-      picked: picked,
-      mode: mode,
-      manualData: manualData,
-    );
   }
 
   Future<String?> processPickedPhoto({
@@ -81,41 +93,50 @@ class OvertimeFormController extends ChangeNotifier {
     required XFile picked,
     required PhotoStampMode mode,
     ManualTimestampData? manualData,
+    DateTime? existingTimestamp,
   }) async {
-    processingSlot = slot;
+    _photoStates[slot] = PhotoInputState.timestampProcessing;
     generalError = null;
     notifyListeners();
     try {
-      final photo = mode == PhotoStampMode.manual
-          ? await _photoService.createManualStamp(
-              source: picked,
-              data: manualData!,
-            )
-          : await _photoService.createAutomaticStamp(picked);
+      final photo = switch (mode) {
+        PhotoStampMode.automatic => await _photoService.createAutomaticStamp(picked),
+        PhotoStampMode.manual => await _photoService.createManualStamp(
+          source: picked,
+          data: manualData!,
+        ),
+        PhotoStampMode.existingTimestamp => await _photoService.keepExistingTimestamp(
+          source: picked,
+          timestamp: existingTimestamp!,
+        ),
+      };
       if (slot == PhotoSlot.activity) {
         activityPhoto = photo;
       } else {
         checkoutPhoto = photo;
       }
+      _photoStates[slot] = PhotoInputState.ready;
       _clearError(slot == PhotoSlot.activity ? 'foto_kegiatan' : 'foto_pulang');
       return null;
     } on LocationException catch (error) {
+      _photoStates[slot] = PhotoInputState.error;
       return error.message;
     } on PhotoProcessingException catch (error) {
+      _photoStates[slot] = PhotoInputState.error;
       return error.message;
     } catch (_) {
+      _photoStates[slot] = PhotoInputState.error;
       return 'Foto belum dapat diproses. Silakan coba lagi.';
     } finally {
-      processingSlot = null;
       notifyListeners();
     }
   }
 
   Future<SubmitOutcome> submit() async {
-    showValidation = true;
     errors = _localErrors();
     notifyListeners();
     if (errors.isNotEmpty) return SubmitOutcome.validation;
+
     isSubmitting = true;
     generalError = null;
     notifyListeners();
@@ -124,15 +145,13 @@ class OvertimeFormController extends ChangeNotifier {
         date: activityDate,
         activityName: activityName.trim(),
         location: location.trim(),
-        activityPhoto: activityPhoto!,
-        checkoutPhoto: checkoutPhoto!,
+        activityPhoto: activityPhoto,
+        checkoutPhoto: checkoutPhoto,
       );
       return SubmitOutcome.success;
     } on ApiException catch (error) {
       generalError = error.message;
-      if (error.fieldErrors.isNotEmpty) {
-        errors = _mapServerErrors(error.fieldErrors);
-      }
+      if (error.fieldErrors.isNotEmpty) errors = _mapServerErrors(error.fieldErrors);
       notifyListeners();
       return error.isUnauthenticated
           ? SubmitOutcome.unauthenticated
@@ -149,32 +168,17 @@ class OvertimeFormController extends ChangeNotifier {
 
   Map<String, String> _localErrors() {
     final result = <String, String>{};
-    if (activityName.trim().isEmpty) {
-      result['nama_kegiatan'] = 'Nama kegiatan wajib diisi';
-    }
-    if (location.trim().isEmpty) {
-      result['lokasi_kegiatan'] = 'Lokasi kegiatan wajib diisi';
-    }
-    if (activityPhoto == null) {
-      result['foto_kegiatan'] = 'Foto kegiatan wajib ditambahkan';
-    }
-    if (checkoutPhoto == null) {
-      result['foto_pulang'] = 'Foto presensi pulang wajib ditambahkan';
-    }
+    if (activityName.trim().isEmpty) result['nama_kegiatan'] = 'Nama kegiatan wajib diisi';
+    if (location.trim().isEmpty) result['lokasi_kegiatan'] = 'Lokasi kegiatan wajib diisi';
     return result;
   }
 
   Map<String, String> _mapServerErrors(Map<String, List<String>> fieldErrors) {
-    const aliases = {
-      'foto_kegiatan_at': 'foto_kegiatan',
-      'foto_pulang_at': 'foto_pulang',
-    };
+    const aliases = {'foto_kegiatan_at': 'foto_kegiatan', 'foto_pulang_at': 'foto_pulang'};
     final mapped = <String, String>{};
     fieldErrors.forEach((field, messages) {
       final target = aliases[field] ?? field;
-      if (messages.isNotEmpty && !mapped.containsKey(target)) {
-        mapped[target] = messages.first;
-      }
+      if (messages.isNotEmpty && !mapped.containsKey(target)) mapped[target] = messages.first;
     });
     return mapped;
   }

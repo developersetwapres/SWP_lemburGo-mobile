@@ -20,9 +20,11 @@ class OvertimeFormPage extends StatefulWidget {
     required this.onSessionExpired,
     super.key,
   });
+
   final OvertimeRepository repository;
   final PhotoProcessingService photoService;
   final Future<void> Function() onSessionExpired;
+
   @override
   State<OvertimeFormPage> createState() => _OvertimeFormPageState();
 }
@@ -52,63 +54,97 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
   }
 
   Future<void> _choosePhoto(PhotoSlot slot) async {
-    final source = await showModalBottomSheet<_PhotoChoice>(
+    final source = await showModalBottomSheet<ImageSource>(
       context: context,
       showDragHandle: true,
       backgroundColor: AppColors.surface,
       builder: (_) => const _PhotoSourceSheet(),
     );
     if (!mounted || source == null) return;
-    if (source.source == ImageSource.gallery &&
-        source.mode == PhotoStampMode.manual) {
-      final picked = await widget.photoService.pickImage(
-        source: ImageSource.gallery,
+
+    final picked = await _controller.pickPhoto(slot: slot, source: source);
+    if (!mounted || picked == null) return;
+
+    // Camera intentionally defaults to automatic: one tap after capture gives
+    // the most useful result, while its preview still permits a later change.
+    final mode = source == ImageSource.camera
+        ? PhotoStampMode.automatic
+        : await _chooseTimestampMode();
+    if (!mounted || mode == null) return;
+    await _applyTimestamp(slot: slot, photo: picked, mode: mode);
+  }
+
+  Future<void> _changeTimestamp(PhotoSlot slot) async {
+    final photo = _controller.photoFor(slot);
+    if (photo == null || photo.mode == PhotoStampMode.existingTimestamp) return;
+    final mode = await _chooseTimestampMode();
+    if (!mounted || mode == null) return;
+    await _applyTimestamp(
+      slot: slot,
+      photo: XFile(photo.sourceFile.path),
+      mode: mode,
+    );
+  }
+
+  Future<PhotoStampMode?> _chooseTimestampMode() =>
+      showModalBottomSheet<PhotoStampMode>(
+        context: context,
+        showDragHandle: true,
+        backgroundColor: AppColors.surface,
+        builder: (_) => const _TimestampModeSheet(),
       );
-      if (!mounted || picked == null) return;
-      final manual = await showModalBottomSheet<ManualTimestampData>(
+
+  Future<void> _applyTimestamp({
+    required PhotoSlot slot,
+    required XFile photo,
+    required PhotoStampMode mode,
+  }) async {
+    ManualTimestampData? manualData;
+    DateTime? existingTimestamp;
+    if (mode == PhotoStampMode.manual) {
+      manualData = await showModalBottomSheet<ManualTimestampData>(
         context: context,
         isScrollControlled: true,
         showDragHandle: true,
         backgroundColor: AppColors.surface,
         builder: (_) => const _ManualTimestampSheet(),
       );
-      if (!mounted || manual == null) return;
-      final message = await _controller.processPickedPhoto(
-        slot: slot,
-        picked: picked,
-        mode: source.mode,
-        manualData: manual,
-      );
-      if (mounted && message != null) _showPhotoError(message, slot);
-      return;
+      if (!mounted || manualData == null) return;
     }
-    await _processPhoto(slot, source.source, source.mode, null);
-  }
-
-  Future<void> _processPhoto(
-    PhotoSlot slot,
-    ImageSource source,
-    PhotoStampMode mode,
-    ManualTimestampData? manual,
-  ) async {
-    final message = await _controller.addPhoto(
+    if (mode == PhotoStampMode.existingTimestamp) {
+      existingTimestamp = await showModalBottomSheet<DateTime>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        backgroundColor: AppColors.surface,
+        builder: (_) => const _ExistingTimestampSheet(),
+      );
+      if (!mounted || existingTimestamp == null) return;
+    }
+    final message = await _controller.processPickedPhoto(
       slot: slot,
-      source: source,
+      picked: photo,
       mode: mode,
-      manualData: manual,
+      manualData: manualData,
+      existingTimestamp: existingTimestamp,
     );
-    if (!mounted || message == null) return;
-    _showPhotoError(message, slot);
+    if (mounted && message != null) {
+      _showPhotoError(message, slot, photo);
+    }
   }
 
-  void _showPhotoError(String message, PhotoSlot slot) {
+  void _showPhotoError(String message, PhotoSlot slot, XFile photo) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
-          label: 'Manual',
-          onPressed: () => _choosePhoto(slot),
+          label: 'Atur Manual',
+          onPressed: () => _applyTimestamp(
+            slot: slot,
+            photo: photo,
+            mode: PhotoStampMode.manual,
+          ),
         ),
       ),
     );
@@ -156,7 +192,6 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
         ),
         title: const Text('Mulai Lembur'),
         titleTextStyle: Theme.of(context).textTheme.titleLarge,
-        centerTitle: false,
       ),
       body: SafeArea(
         top: false,
@@ -204,25 +239,17 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
               const SizedBox(height: 30),
               const SectionHeader(
                 title: 'Foto Kegiatan',
-                subtitle: 'Wajib • timestamp dibakar permanen',
+                subtitle: 'Opsional • dapat dilengkapi kemudian',
               ),
               const SizedBox(height: 14),
-              _photoSection(
-                PhotoSlot.activity,
-                'Tambah Foto Kegiatan',
-                _controller.errors['foto_kegiatan'],
-              ),
+              _photoSection(PhotoSlot.activity, 'Tambah Foto Kegiatan'),
               const SizedBox(height: 30),
               const SectionHeader(
                 title: 'Foto Presensi Pulang',
-                subtitle: 'Wajib • waktu pulang berasal dari timestamp',
+                subtitle: 'Opsional • waktu pulang dari timestamp foto',
               ),
               const SizedBox(height: 14),
-              _photoSection(
-                PhotoSlot.checkout,
-                'Tambah Foto Pulang',
-                _controller.errors['foto_pulang'],
-              ),
+              _photoSection(PhotoSlot.checkout, 'Tambah Foto Presensi Pulang'),
               const SizedBox(height: 30),
               AppCard(
                 color: AppColors.warningLight,
@@ -234,7 +261,7 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Pastikan foto memperlihatkan kegiatan dan presensi pulang dengan jelas.',
+                        'Simpan detail kegiatan terlebih dahulu. Foto dapat ditambahkan saat melanjutkan laporan.',
                         style: TextStyle(color: AppColors.navy, height: 1.4),
                       ),
                     ),
@@ -255,47 +282,36 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
           ),
           child: PrimaryButton(
             label: _controller.isSubmitting
-                ? 'Mengirim laporan...'
-                : 'Kirim Laporan Lembur',
-            icon: _controller.isSubmitting ? null : Icons.send_rounded,
+                ? 'Menyimpan lembur...'
+                : 'Simpan Lembur',
+            icon: _controller.isSubmitting ? null : Icons.save_outlined,
             isLoading: _controller.isSubmitting,
-            onPressed: _controller.isSubmitting ? null : _submit,
+            onPressed: _controller.canSubmit ? _submit : null,
           ),
         ),
       ),
     ),
   );
 
-  Widget _photoSection(PhotoSlot slot, String label, String? error) {
+  Widget _photoSection(PhotoSlot slot, String label) {
     final photo = _controller.photoFor(slot);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        PhotoUploadCard(
-          label: label,
-          photoFile: photo?.file,
-          timestampLabel: photo == null
-              ? null
-              : DateFormat(
-                  'dd MMM yyyy • HH:mm',
-                  'id_ID',
-                ).format(photo.timestamp),
-          modeLabel: photo?.mode == PhotoStampMode.manual
-              ? 'TIMESTAMP MANUAL'
-              : 'AUTO TIMESTAMP',
-          isProcessing: _controller.isProcessing(slot),
-          onTap: () => _choosePhoto(slot),
-          onRemove: () => _controller.removePhoto(slot),
-        ),
-        if (error != null)
-          Padding(
-            padding: const EdgeInsets.only(left: 12, top: 7),
-            child: Text(
-              error,
-              style: const TextStyle(color: AppColors.error, fontSize: 12),
-            ),
-          ),
-      ],
+    return PhotoUploadCard(
+      label: label,
+      photoFile: photo?.file,
+      timestampLabel: photo == null
+          ? null
+          : DateFormat('dd MMM yyyy • HH:mm', 'id_ID').format(photo.timestamp),
+      modeLabel: switch (photo?.mode) {
+        PhotoStampMode.manual => 'MANUAL TIMESTAMP',
+        PhotoStampMode.existingTimestamp => 'TIMESTAMP DARI FOTO',
+        _ => 'AUTO TIMESTAMP',
+      },
+      isProcessing: _controller.isProcessing(slot),
+      onTap: () => _choosePhoto(slot),
+      onRemove: () => _controller.removePhoto(slot),
+      onChangeTimestamp: photo?.mode == PhotoStampMode.existingTimestamp
+          ? null
+          : () => _changeTimestamp(slot),
     );
   }
 
@@ -319,6 +335,7 @@ class _DateCard extends StatelessWidget {
   final DateTime date;
   final String? error;
   final VoidCallback onTap;
+
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -391,14 +408,67 @@ class _DateCard extends StatelessWidget {
   );
 }
 
-class _PhotoChoice {
-  const _PhotoChoice(this.source, this.mode);
-  final ImageSource source;
-  final PhotoStampMode mode;
-}
-
 class _PhotoSourceSheet extends StatelessWidget {
   const _PhotoSourceSheet();
+  @override
+  Widget build(BuildContext context) => _SheetScaffold(
+    title: 'Tambah Foto',
+    subtitle: 'Pilih sumber foto terlebih dahulu.',
+    children: [
+      _OptionTile(
+        icon: Icons.camera_alt_rounded,
+        title: 'Ambil dari Kamera',
+        subtitle: 'Gunakan kamera belakang perangkat',
+        onTap: () => Navigator.pop(context, ImageSource.camera),
+      ),
+      _OptionTile(
+        icon: Icons.photo_library_outlined,
+        title: 'Pilih dari Galeri',
+        subtitle: 'Gunakan foto yang sudah ada',
+        onTap: () => Navigator.pop(context, ImageSource.gallery),
+      ),
+    ],
+  );
+}
+
+class _TimestampModeSheet extends StatelessWidget {
+  const _TimestampModeSheet();
+  @override
+  Widget build(BuildContext context) => _SheetScaffold(
+    title: 'Timestamp Foto',
+    subtitle: 'Tentukan informasi yang digunakan pada foto ini.',
+    children: [
+      _OptionTile(
+        icon: Icons.my_location_rounded,
+        title: 'Otomatis',
+        subtitle: 'Gunakan waktu dan lokasi perangkat saat ini',
+        onTap: () => Navigator.pop(context, PhotoStampMode.automatic),
+      ),
+      _OptionTile(
+        icon: Icons.edit_calendar_outlined,
+        title: 'Atur Manual',
+        subtitle: 'Tentukan tanggal, waktu, dan alamat sendiri',
+        onTap: () => Navigator.pop(context, PhotoStampMode.manual),
+      ),
+      _OptionTile(
+        icon: Icons.verified_outlined,
+        title: 'Foto sudah memiliki timestamp',
+        subtitle: 'Gunakan foto apa adanya tanpa menambahkan timestamp baru',
+        onTap: () => Navigator.pop(context, PhotoStampMode.existingTimestamp),
+      ),
+    ],
+  );
+}
+
+class _SheetScaffold extends StatelessWidget {
+  const _SheetScaffold({
+    required this.title,
+    required this.subtitle,
+    required this.children,
+  });
+  final String title;
+  final String subtitle;
+  final List<Widget> children;
   @override
   Widget build(BuildContext context) => SafeArea(
     child: Padding(
@@ -407,40 +477,11 @@ class _PhotoSourceSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Tambah Foto', style: Theme.of(context).textTheme.titleLarge),
+          Text(title, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 6),
-          Text(
-            'Setiap foto akan memiliki timestamp permanen.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+          Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 16),
-          _OptionTile(
-            icon: Icons.camera_alt_rounded,
-            title: 'Ambil Foto',
-            subtitle: 'Kamera belakang dengan timestamp otomatis',
-            onTap: () => Navigator.pop(
-              context,
-              const _PhotoChoice(ImageSource.camera, PhotoStampMode.automatic),
-            ),
-          ),
-          _OptionTile(
-            icon: Icons.photo_library_outlined,
-            title: 'Galeri • waktu & lokasi sekarang',
-            subtitle: 'Gunakan foto yang sudah ada dengan timestamp otomatis',
-            onTap: () => Navigator.pop(
-              context,
-              const _PhotoChoice(ImageSource.gallery, PhotoStampMode.automatic),
-            ),
-          ),
-          _OptionTile(
-            icon: Icons.edit_location_alt_outlined,
-            title: 'Galeri • atur timestamp manual',
-            subtitle: 'Tentukan tanggal, waktu, dan alamat sendiri',
-            onTap: () => Navigator.pop(
-              context,
-              const _PhotoChoice(ImageSource.gallery, PhotoStampMode.manual),
-            ),
-          ),
+          ...children,
         ],
       ),
     ),
@@ -455,7 +496,8 @@ class _OptionTile extends StatelessWidget {
     required this.onTap,
   });
   final IconData icon;
-  final String title, subtitle;
+  final String title;
+  final String subtitle;
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => ListTile(
@@ -487,6 +529,7 @@ class _ManualTimestampSheetState extends State<_ManualTimestampSheet> {
   final _road = TextEditingController();
   final _districtCity = TextEditingController();
   final _province = TextEditingController();
+
   @override
   void dispose() {
     _road.dispose();
@@ -496,79 +539,35 @@ class _ManualTimestampSheetState extends State<_ManualTimestampSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.fromLTRB(
-      20,
-      4,
-      20,
-      24 + MediaQuery.viewInsetsOf(context).bottom,
-    ),
-    child: SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Atur Timestamp Manual',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Informasi ini akan dibakar ke foto.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _selectDate,
-                  icon: const Icon(Icons.calendar_today_outlined),
-                  label: Text(DateFormat('dd MMM y', 'id_ID').format(_date)),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _selectTime,
-                  icon: const Icon(Icons.access_time_rounded),
-                  label: Text(_time.format(context)),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _road,
-            decoration: const InputDecoration(
-              labelText: 'Nama jalan',
-              hintText: 'Jl. Kebon Sirih No. 14',
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _districtCity,
-            decoration: const InputDecoration(
-              labelText: 'Kecamatan, Kota/Kabupaten',
-              hintText: 'Menteng, Jakarta Pusat',
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _province,
-            decoration: const InputDecoration(
-              labelText: 'Provinsi',
-              hintText: 'DKI Jakarta',
-            ),
-          ),
-          const SizedBox(height: 20),
-          PrimaryButton(
-            label: 'Gunakan Timestamp Ini',
-            icon: Icons.check_rounded,
-            onPressed: _save,
-          ),
-        ],
+  Widget build(BuildContext context) => _TimestampFormShell(
+    title: 'Atur Timestamp Manual',
+    subtitle: 'Informasi ini akan dibakar permanen ke foto.',
+    date: _date,
+    time: _time,
+    onDate: _selectDate,
+    onTime: _selectTime,
+    fields: [
+      _locationField(_road, 'Nama jalan', 'Jl. Kebon Sirih No. 14'),
+      _locationField(
+        _districtCity,
+        'Kecamatan, Kota/Kabupaten',
+        'Menteng, Jakarta Pusat',
       ),
+      _locationField(_province, 'Provinsi', 'DKI Jakarta'),
+    ],
+    buttonLabel: 'Gunakan Timestamp Ini',
+    onSave: _save,
+  );
+
+  Widget _locationField(
+    TextEditingController controller,
+    String label,
+    String hint,
+  ) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: TextField(
+      controller: controller,
+      decoration: InputDecoration(labelText: label, hintText: hint),
     ),
   );
   Future<void> _selectDate() async {
@@ -587,9 +586,11 @@ class _ManualTimestampSheetState extends State<_ManualTimestampSheet> {
   }
 
   void _save() {
-    if (_road.text.trim().isEmpty ||
-        _districtCity.text.trim().isEmpty ||
-        _province.text.trim().isEmpty) {
+    if ([
+      _road,
+      _districtCity,
+      _province,
+    ].any((controller) => controller.text.trim().isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Lengkapi alamat untuk timestamp manual.'),
@@ -611,6 +612,126 @@ class _ManualTimestampSheetState extends State<_ManualTimestampSheet> {
           road: _road.text.trim(),
           districtCity: _districtCity.text.trim(),
           province: _province.text.trim(),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExistingTimestampSheet extends StatefulWidget {
+  const _ExistingTimestampSheet();
+  @override
+  State<_ExistingTimestampSheet> createState() =>
+      _ExistingTimestampSheetState();
+}
+
+class _ExistingTimestampSheetState extends State<_ExistingTimestampSheet> {
+  DateTime _date = DateTime.now();
+  TimeOfDay _time = TimeOfDay.now();
+  @override
+  Widget build(BuildContext context) => _TimestampFormShell(
+    title: 'Waktu Foto',
+    subtitle: 'Waktu ini dikirim ke laporan tanpa mengubah tampilan foto.',
+    date: _date,
+    time: _time,
+    onDate: _selectDate,
+    onTime: _selectTime,
+    fields: const [],
+    buttonLabel: 'Gunakan Waktu Ini',
+    onSave: () => Navigator.pop(
+      context,
+      DateTime(_date.year, _date.month, _date.day, _time.hour, _time.minute),
+    ),
+  );
+  Future<void> _selectDate() async {
+    final value = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2024),
+      lastDate: DateTime.now(),
+    );
+    if (value != null) setState(() => _date = value);
+  }
+
+  Future<void> _selectTime() async {
+    final value = await showTimePicker(context: context, initialTime: _time);
+    if (value != null) setState(() => _time = value);
+  }
+}
+
+class _TimestampFormShell extends StatelessWidget {
+  const _TimestampFormShell({
+    required this.title,
+    required this.subtitle,
+    required this.date,
+    required this.time,
+    required this.onDate,
+    required this.onTime,
+    required this.fields,
+    required this.buttonLabel,
+    required this.onSave,
+  });
+  final String title, subtitle, buttonLabel;
+  final DateTime date;
+  final TimeOfDay time;
+  final VoidCallback onDate, onTime, onSave;
+  final List<Widget> fields;
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        4,
+        20,
+        24 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleLarge),
+
+            const SizedBox(height: 6),
+
+            Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+
+            const SizedBox(height: 18),
+
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onDate,
+                    icon: const Icon(Icons.calendar_today_outlined),
+                    label: Text(DateFormat('dd MMM y', 'id_ID').format(date)),
+                  ),
+                ),
+
+                const SizedBox(width: 10),
+
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onTime,
+                    icon: const Icon(Icons.access_time_rounded),
+                    label: Text(time.format(context)),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 14),
+
+            ...fields,
+
+            const SizedBox(height: 8),
+
+            PrimaryButton(
+              label: buttonLabel,
+              icon: Icons.check_rounded,
+              onPressed: onSave,
+            ),
+          ],
         ),
       ),
     );
@@ -642,12 +763,12 @@ class _SuccessSheet extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            'Laporan berhasil disimpan',
+            'Lembur berhasil disimpan',
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
           Text(
-            'Laporan lembur Anda telah dikirim.',
+            'Anda dapat melengkapi foto kegiatan dan presensi pada tahap berikutnya.',
             style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),

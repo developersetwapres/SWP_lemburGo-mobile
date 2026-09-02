@@ -2,7 +2,16 @@ import 'dart:io';
 
 enum PhotoSlot { activity, checkout }
 
-enum PhotoStampMode { automatic, manual }
+enum PhotoStampMode { automatic, manual, existingTimestamp }
+
+enum PhotoInputState {
+  empty,
+  sourceSelected,
+  photoSelected,
+  timestampProcessing,
+  ready,
+  error,
+}
 
 class DeviceAddress {
   const DeviceAddress({
@@ -32,11 +41,13 @@ class ManualTimestampData {
 class StampedPhoto {
   const StampedPhoto({
     required this.file,
+    required this.sourceFile,
     required this.timestamp,
     required this.address,
     required this.mode,
   });
   final File file;
+  final File sourceFile;
   final DateTime timestamp;
   final DeviceAddress address;
   final PhotoStampMode mode;

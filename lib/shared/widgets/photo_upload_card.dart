@@ -13,6 +13,7 @@ class PhotoUploadCard extends StatelessWidget {
     required this.isProcessing,
     required this.onTap,
     required this.onRemove,
+    this.onChangeTimestamp,
     super.key,
   });
   final String label;
@@ -22,6 +23,7 @@ class PhotoUploadCard extends StatelessWidget {
   final bool isProcessing;
   final VoidCallback onTap;
   final VoidCallback onRemove;
+  final VoidCallback? onChangeTimestamp;
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +36,7 @@ class PhotoUploadCard extends StatelessWidget {
       modeLabel: modeLabel!,
       onReplace: onTap,
       onRemove: onRemove,
+      onChangeTimestamp: onChangeTimestamp,
     );
   }
 }
@@ -81,7 +84,7 @@ class _EmptyPhoto extends StatelessWidget {
                     Text(label, style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 4),
                     Text(
-                      'Kamera atau galeri • timestamp permanen',
+                      'Kamera atau galeri • opsional',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],
@@ -118,7 +121,7 @@ class _ProcessingPhotoCard extends StatelessWidget {
           child: CircularProgressIndicator(strokeWidth: 2.5),
         ),
         SizedBox(width: 12),
-        Text('Memproses foto dan timestamp...'),
+        Text('Menyiapkan foto dan lokasi...'),
       ],
     ),
   );
@@ -132,10 +135,12 @@ class _PhotoPreview extends StatelessWidget {
     required this.modeLabel,
     required this.onReplace,
     required this.onRemove,
+    this.onChangeTimestamp,
   });
   final String label, timestampLabel, modeLabel;
   final File file;
   final VoidCallback onReplace, onRemove;
+  final VoidCallback? onChangeTimestamp;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -200,18 +205,37 @@ class _PhotoPreview extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
-                tooltip: 'Ganti $label',
-                onPressed: onReplace,
-                icon: const Icon(Icons.edit_outlined, color: AppColors.skyBlue),
-              ),
-              IconButton(
-                tooltip: 'Hapus foto',
-                onPressed: onRemove,
-                icon: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: AppColors.error,
-                ),
+              PopupMenuButton<_PhotoAction>(
+                tooltip: 'Aksi foto',
+                onSelected: (action) {
+                  switch (action) {
+                    case _PhotoAction.replace:
+                      onReplace();
+                      break;
+                    case _PhotoAction.changeTimestamp:
+                      onChangeTimestamp?.call();
+                      break;
+                    case _PhotoAction.remove:
+                      onRemove();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: _PhotoAction.replace,
+                    child: Text('Ganti Foto'),
+                  ),
+                  if (onChangeTimestamp != null)
+                    const PopupMenuItem(
+                      value: _PhotoAction.changeTimestamp,
+                      child: Text('Ubah Timestamp'),
+                    ),
+                  const PopupMenuItem(
+                    value: _PhotoAction.remove,
+                    child: Text('Hapus Foto'),
+                  ),
+                ],
+                icon: const Icon(Icons.more_horiz_rounded, color: AppColors.skyBlue),
               ),
             ],
           ),
@@ -220,3 +244,5 @@ class _PhotoPreview extends StatelessWidget {
     ),
   );
 }
+
+enum _PhotoAction { replace, changeTimestamp, remove }
