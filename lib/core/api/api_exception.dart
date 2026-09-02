@@ -1,5 +1,9 @@
 class ApiException implements Exception {
-  const ApiException({required this.message, this.statusCode, this.fieldErrors = const {}});
+  const ApiException({
+    required this.message,
+    this.statusCode,
+    this.fieldErrors = const {},
+  });
   final String message;
   final int? statusCode;
   final Map<String, List<String>> fieldErrors;

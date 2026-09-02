@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/section_header.dart';
-import '../../overtime/presentation/overtime_form_page.dart';
+import '../../auth/data/models/auth_user.dart';
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+  const HomePage({required this.user, required this.onStart, super.key});
+  final AuthUser user;
+  final VoidCallback onStart;
   @override
   Widget build(BuildContext context) => SafeArea(
     child: CustomScrollView(
@@ -15,15 +17,9 @@ class HomePage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              const _WelcomeHeader(),
+              _WelcomeHeader(userName: user.name),
               const SizedBox(height: 28),
-              _TodayOvertimeCard(
-                onStart: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const OvertimeFormPage(),
-                  ),
-                ),
-              ),
+              _TodayOvertimeCard(onStart: onStart),
               const SizedBox(height: 30),
               const SectionHeader(
                 title: 'Ringkasan Lembur',
@@ -42,7 +38,8 @@ class HomePage extends StatelessWidget {
 }
 
 class _WelcomeHeader extends StatelessWidget {
-  const _WelcomeHeader();
+  const _WelcomeHeader({required this.userName});
+  final String userName;
   @override
   Widget build(BuildContext context) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,9 +48,9 @@ class _WelcomeHeader extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Selamat sore,', style: Theme.of(context).textTheme.bodyLarge),
+            Text(_greeting(), style: Theme.of(context).textTheme.bodyLarge),
             const SizedBox(height: 2),
-            Text('Khaeril', style: Theme.of(context).textTheme.headlineMedium),
+            Text(userName, style: Theme.of(context).textTheme.headlineMedium),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -64,7 +61,7 @@ class _WelcomeHeader extends StatelessWidget {
                 ),
                 const SizedBox(width: 7),
                 Text(
-                  'Selasa, 1 September 2026',
+                  _todayLabel(),
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
@@ -90,9 +87,9 @@ class _WelcomeHeader extends StatelessWidget {
             ),
           ],
         ),
-        child: const Center(
+        child: Center(
           child: Text(
-            'K',
+            userName.isEmpty ? 'U' : userName.substring(0, 1).toUpperCase(),
             style: TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -103,6 +100,42 @@ class _WelcomeHeader extends StatelessWidget {
       ),
     ],
   );
+
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 11) return 'Selamat pagi,';
+    if (hour < 15) return 'Selamat siang,';
+    if (hour < 18) return 'Selamat sore,';
+    return 'Selamat malam,';
+  }
+
+  String _todayLabel() {
+    const days = [
+      'Senin',
+      'Selasa',
+      'Rabu',
+      'Kamis',
+      'Jumat',
+      'Sabtu',
+      'Minggu',
+    ];
+    const months = [
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
+    ];
+    final now = DateTime.now();
+    return '${days[now.weekday - 1]}, ${now.day} ${months[now.month - 1]} ${now.year}';
+  }
 }
 
 class _TodayOvertimeCard extends StatelessWidget {

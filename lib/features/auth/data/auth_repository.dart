@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../../core/api/api_exception.dart';
 import '../../../core/storage/token_storage.dart';
 import 'models/auth_user.dart';
 
@@ -12,27 +13,62 @@ class AuthRepository {
   final ApiClient _apiClient;
   final TokenStorage _storage;
 
-  Future<AuthUser> login({required String email, required String password}) async {
+  Future<AuthUser> login({
+    required String email,
+    required String password,
+  }) async {
     try {
-      final response = await _dio.post<Map<String, dynamic>>('/auth/login', data: {'email': email, 'password': password});
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/auth/login',
+        data: {'email': email, 'password': password},
+        options: Options(extra: {'skipAuth': true}),
+      );
       final responseData = response.data ?? const <String, dynamic>{};
-      final data = Map<String, dynamic>.from(responseData['data'] as Map? ?? const {});
-      final meta = Map<String, dynamic>.from(responseData['meta'] as Map? ?? const {});
+      final data = Map<String, dynamic>.from(
+        responseData['data'] as Map? ?? const {},
+      );
+      final meta = Map<String, dynamic>.from(
+        responseData['meta'] as Map? ?? const {},
+      );
       final token = meta['token']?.toString();
-      if (token == null || token.isEmpty || data.isEmpty) throw const FormatException('Respons login tidak lengkap.');
+      if (token == null || token.isEmpty || data.isEmpty) {
+        throw const FormatException('Respons login tidak lengkap.');
+      }
       final user = AuthUser.fromLoginResponse(data);
-      await _storage.saveSession(token: token, userJson: jsonEncode(user.toJson()));
+      await _storage.saveSession(
+        token: token,
+        userJson: jsonEncode(user.toJson()),
+      );
       return user;
     } on DioException catch (error) {
-      throw _apiClient.exceptionFrom(error);
+      final exception = _apiClient.exceptionFrom(error);
+      if (exception.statusCode == 401) {
+        throw const ApiException(
+          message: 'Email atau password tidak sesuai.',
+          statusCode: 401,
+        );
+      }
+      throw exception;
     }
   }
 
   Future<AuthUser?> restoreUser() async {
     final token = await _storage.readToken();
     final userJson = await _storage.readUser();
-    if (token == null || userJson == null) return null;
-    try { return AuthUser.fromJson(Map<String, dynamic>.from(jsonDecode(userJson) as Map)); } catch (_) { await _storage.clear(); return null; }
+    if (token == null || userJson == null) {
+      if (token != null || userJson != null) {
+        await _storage.clear();
+      }
+      return null;
+    }
+    try {
+      return AuthUser.fromJson(
+        Map<String, dynamic>.from(jsonDecode(userJson) as Map),
+      );
+    } catch (_) {
+      await _storage.clear();
+      return null;
+    }
   }
 
   Future<void> logout() => _storage.clear();

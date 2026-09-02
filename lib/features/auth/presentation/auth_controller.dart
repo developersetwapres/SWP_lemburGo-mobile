@@ -13,18 +13,39 @@ class AuthController extends ChangeNotifier {
   String? errorMessage;
 
   Future<void> restoreSession() async {
-    user = await _repository.restoreUser();
-    isCheckingSession = false;
-    notifyListeners();
+    try {
+      user = await _repository.restoreUser();
+    } catch (_) {
+      user = null;
+    } finally {
+      isCheckingSession = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> login({required String email, required String password}) async {
-    isLoggingIn = true; errorMessage = null; notifyListeners();
-    try { user = await _repository.login(email: email, password: password); return true; }
-    on ApiException catch (error) { errorMessage = error.message; return false; }
-    on FormatException { errorMessage = 'Respons server tidak dapat diproses. Silakan coba lagi.'; return false; }
-    finally { isLoggingIn = false; notifyListeners(); }
+    isLoggingIn = true;
+    errorMessage = null;
+    notifyListeners();
+    try {
+      user = await _repository.login(email: email, password: password);
+      return true;
+    } on ApiException catch (error) {
+      errorMessage = error.message;
+      return false;
+    } on FormatException {
+      errorMessage = 'Respons server tidak dapat diproses. Silakan coba lagi.';
+      return false;
+    } finally {
+      isLoggingIn = false;
+      notifyListeners();
+    }
   }
 
-  Future<void> logout() async { await _repository.logout(); user = null; errorMessage = null; notifyListeners(); }
+  Future<void> logout() async {
+    await _repository.logout();
+    user = null;
+    errorMessage = null;
+    notifyListeners();
+  }
 }

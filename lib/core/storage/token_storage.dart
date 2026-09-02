@@ -12,9 +12,9 @@ class TokenStorage {
   Future<String?> readUser() => _storage.read(key: _userKey);
 
   Future<void> saveSession({required String token, required String userJson}) =>
-      _storage.write(key: _tokenKey, value: token).then(
-        (_) => _storage.write(key: _userKey, value: userJson),
-      );
+      _storage
+          .write(key: _tokenKey, value: token)
+          .then((_) => _storage.write(key: _userKey, value: userJson));
 
   Future<void> clear() => _storage.deleteAll();
 }
