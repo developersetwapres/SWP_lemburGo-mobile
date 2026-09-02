@@ -14,5 +14,6 @@ abstract final class AppColors {
   static const warning = Color(0xFFE49A28);
   static const warningLight = Color(0xFFFFF3DE);
   static const error = Color(0xFFD85656);
+  static const errorLight = Color(0xFFFFEEEE);
   static const disabled = Color(0xFFAAB6C5);
 }

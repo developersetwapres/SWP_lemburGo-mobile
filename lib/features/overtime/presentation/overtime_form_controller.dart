@@ -2,16 +2,34 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/api/api_exception.dart';
+import '../data/models/draft_overtime.dart';
 import '../data/models/photo_stamp.dart';
 import '../data/overtime_repository.dart';
 import '../data/services/location_service.dart';
 import '../data/services/photo_processing_service.dart';
 
 class OvertimeFormController extends ChangeNotifier {
-  OvertimeFormController(this._repository, this._photoService);
+  OvertimeFormController(
+    this._repository,
+    this._photoService, {
+    this.draft,
+  }) {
+    if (draft != null) {
+      activityDate = draft!.activityDate;
+      activityName = draft!.activityName;
+      location = draft!.location;
+      _photoStates[PhotoSlot.activity] = draft!.hasActivityPhoto
+          ? PhotoInputState.ready
+          : PhotoInputState.empty;
+      _photoStates[PhotoSlot.checkout] = draft!.hasCheckoutPhoto
+          ? PhotoInputState.ready
+          : PhotoInputState.empty;
+    }
+  }
 
   final OvertimeRepository _repository;
   final PhotoProcessingService _photoService;
+  final DraftOvertime? draft;
 
   DateTime activityDate = DateTime.now();
   String activityName = '', location = '';
@@ -32,6 +50,19 @@ class OvertimeFormController extends ChangeNotifier {
 
   StampedPhoto? photoFor(PhotoSlot slot) =>
       slot == PhotoSlot.activity ? activityPhoto : checkoutPhoto;
+
+  String? existingPhotoUrlFor(PhotoSlot slot) => switch (slot) {
+    PhotoSlot.activity => draft?.activityPhotoUrl,
+    PhotoSlot.checkout => draft?.checkoutPhotoUrl,
+  };
+
+  DateTime? existingPhotoTimestampFor(PhotoSlot slot) => switch (slot) {
+    PhotoSlot.activity => draft?.activityPhotoAt,
+    PhotoSlot.checkout => draft?.checkoutPhotoAt,
+  };
+
+  bool hasPhotoFor(PhotoSlot slot) =>
+      photoFor(slot) != null || existingPhotoUrlFor(slot) != null;
 
   PhotoInputState stateFor(PhotoSlot slot) =>
       _photoStates[slot] ?? PhotoInputState.empty;
@@ -66,7 +97,7 @@ class OvertimeFormController extends ChangeNotifier {
     try {
       final picked = await _photoService.pickImage(source: source);
       _photoStates[slot] = picked == null
-          ? (photoFor(slot) == null ? PhotoInputState.empty : PhotoInputState.ready)
+          ? (hasPhotoFor(slot) ? PhotoInputState.ready : PhotoInputState.empty)
           : PhotoInputState.photoSelected;
       return picked;
     } catch (_) {
@@ -141,13 +172,24 @@ class OvertimeFormController extends ChangeNotifier {
     generalError = null;
     notifyListeners();
     try {
-      await _repository.submit(
-        date: activityDate,
-        activityName: activityName.trim(),
-        location: location.trim(),
-        activityPhoto: activityPhoto,
-        checkoutPhoto: checkoutPhoto,
-      );
+      if (draft != null) {
+        await _repository.update(
+          draft: draft!,
+          date: activityDate,
+          activityName: activityName.trim(),
+          location: location.trim(),
+          newActivityPhoto: activityPhoto,
+          newCheckoutPhoto: checkoutPhoto,
+        );
+      } else {
+        await _repository.submit(
+          date: activityDate,
+          activityName: activityName.trim(),
+          location: location.trim(),
+          activityPhoto: activityPhoto,
+          checkoutPhoto: checkoutPhoto,
+        );
+      }
       return SubmitOutcome.success;
     } on ApiException catch (error) {
       generalError = error.message;

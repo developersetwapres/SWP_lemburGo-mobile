@@ -1,12 +1,27 @@
 import 'package:dio/dio.dart';
 
 import '../../../core/api/api_client.dart';
-import '../data/models/photo_stamp.dart';
+import 'models/draft_overtime.dart';
+import 'models/photo_stamp.dart';
 
 class OvertimeRepository {
   OvertimeRepository(this._dio, this._apiClient);
   final Dio _dio;
   final ApiClient _apiClient;
+
+  Future<List<DraftOvertime>> fetchDrafts() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>('/lemburs/draft');
+      final rawData = response.data?['data'];
+      if (rawData is! List) return const [];
+      return rawData
+          .whereType<Map>()
+          .map((item) => DraftOvertime.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    } on DioException catch (error) {
+      throw _apiClient.exceptionFrom(error);
+    }
+  }
 
   Future<void> submit({
     required DateTime date,
@@ -43,6 +58,49 @@ class OvertimeRepository {
       throw _apiClient.exceptionFrom(error);
     }
   }
+
+  Future<void> update({
+    required DraftOvertime draft,
+    required DateTime date,
+    required String activityName,
+    required String location,
+    StampedPhoto? newActivityPhoto,
+    StampedPhoto? newCheckoutPhoto,
+  }) async {
+    try {
+      final fields = <String, dynamic>{
+        'tanggal_kegiatan': _formatDate(date),
+        'nama_kegiatan': activityName,
+        'lokasi_kegiatan': location,
+      };
+      if (newActivityPhoto != null) {
+        fields['foto_kegiatan'] = await _multipartPhoto(
+          newActivityPhoto,
+          'foto_kegiatan',
+        );
+        fields['foto_kegiatan_at'] = _formatDateTime(newActivityPhoto.timestamp);
+      }
+      if (newCheckoutPhoto != null) {
+        fields['foto_pulang'] = await _multipartPhoto(
+          newCheckoutPhoto,
+          'foto_pulang',
+        );
+        fields['foto_pulang_at'] = _formatDateTime(newCheckoutPhoto.timestamp);
+      }
+      final data = newActivityPhoto == null && newCheckoutPhoto == null
+          ? fields
+          : FormData.fromMap(fields);
+      await _dio.put<void>('/lemburs/${draft.id}', data: data);
+    } on DioException catch (error) {
+      throw _apiClient.exceptionFrom(error);
+    }
+  }
+
+  Future<MultipartFile> _multipartPhoto(StampedPhoto photo, String field) =>
+      MultipartFile.fromFile(
+        photo.file.path,
+        filename: '$field${_fileExtension(photo.file.path)}',
+      );
 
   String _formatDate(DateTime date) =>
       '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';

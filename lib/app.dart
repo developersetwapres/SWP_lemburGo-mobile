@@ -8,6 +8,7 @@ import 'features/auth/data/auth_repository.dart';
 import 'features/auth/presentation/auth_controller.dart';
 import 'features/auth/presentation/login_page.dart';
 import 'features/dashboard/presentation/home_page.dart';
+import 'features/overtime/data/models/draft_overtime.dart';
 import 'features/overtime/data/overtime_repository.dart';
 import 'features/overtime/data/services/photo_processing_service.dart';
 import 'features/overtime/presentation/overtime_form_page.dart';
@@ -81,6 +82,21 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
+
+  Future<bool> _openOvertimeForm([DraftOvertime? draft]) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => OvertimeFormPage(
+          repository: widget.overtimeRepository,
+          photoService: widget.photoProcessingService,
+          onSessionExpired: widget.authController.logout,
+          draft: draft,
+        ),
+      ),
+    );
+    return saved ?? false;
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     body: IndexedStack(
@@ -88,15 +104,10 @@ class _AppShellState extends State<AppShell> {
       children: [
         HomePage(
           user: widget.authController.user!,
-          onStart: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => OvertimeFormPage(
-                repository: widget.overtimeRepository,
-                photoService: widget.photoProcessingService,
-                onSessionExpired: widget.authController.logout,
-              ),
-            ),
-          ),
+          repository: widget.overtimeRepository,
+          onStart: _openOvertimeForm,
+          onContinue: _openOvertimeForm,
+          onSessionExpired: widget.authController.logout,
         ),
         const _ComingSoonPlaceholder(
           icon: Icons.calendar_month_rounded,

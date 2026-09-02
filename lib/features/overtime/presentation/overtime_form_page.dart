@@ -8,6 +8,7 @@ import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/photo_upload_card.dart';
 import '../../../shared/widgets/primary_button.dart';
 import '../../../shared/widgets/section_header.dart';
+import '../data/models/draft_overtime.dart';
 import '../data/models/photo_stamp.dart';
 import '../data/overtime_repository.dart';
 import '../data/services/photo_processing_service.dart';
@@ -18,12 +19,14 @@ class OvertimeFormPage extends StatefulWidget {
     required this.repository,
     required this.photoService,
     required this.onSessionExpired,
+    this.draft,
     super.key,
   });
 
   final OvertimeRepository repository;
   final PhotoProcessingService photoService;
   final Future<void> Function() onSessionExpired;
+  final DraftOvertime? draft;
 
   @override
   State<OvertimeFormPage> createState() => _OvertimeFormPageState();
@@ -40,9 +43,10 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
     _controller = OvertimeFormController(
       widget.repository,
       widget.photoService,
+      draft: widget.draft,
     );
-    _activityController = TextEditingController();
-    _locationController = TextEditingController();
+    _activityController = TextEditingController(text: _controller.activityName);
+    _locationController = TextEditingController(text: _controller.location);
   }
 
   @override
@@ -167,7 +171,7 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
         builder: (context) =>
             _SuccessSheet(onClose: () => Navigator.pop(context)),
       );
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) Navigator.of(context).pop(true);
       return;
     }
     if (outcome == SubmitOutcome.failure && _controller.generalError != null) {
@@ -190,7 +194,7 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
           onPressed: () => Navigator.of(context).pop(),
           icon: const Icon(Icons.arrow_back_rounded),
         ),
-        title: const Text('Mulai Lembur'),
+        title: Text(widget.draft == null ? 'Mulai Lembur' : 'Lengkapi Lembur'),
         titleTextStyle: Theme.of(context).textTheme.titleLarge,
       ),
       body: SafeArea(
@@ -202,7 +206,9 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Catat kegiatan lembur Anda',
+                widget.draft == null
+                    ? 'Catat kegiatan lembur Anda'
+                    : 'Lengkapi detail laporan lembur Anda',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 22),
@@ -237,16 +243,20 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
                 onChanged: _controller.setLocation,
               ),
               const SizedBox(height: 30),
-              const SectionHeader(
+              SectionHeader(
                 title: 'Foto Kegiatan',
-                subtitle: 'Opsional • dapat dilengkapi kemudian',
+                subtitle: _controller.hasPhotoFor(PhotoSlot.activity)
+                    ? 'Foto kegiatan sudah tersedia'
+                    : 'Opsional • dapat dilengkapi kemudian',
               ),
               const SizedBox(height: 14),
               _photoSection(PhotoSlot.activity, 'Tambah Foto Kegiatan'),
               const SizedBox(height: 30),
-              const SectionHeader(
+              SectionHeader(
                 title: 'Foto Presensi Pulang',
-                subtitle: 'Opsional • waktu pulang dari timestamp foto',
+                subtitle: _controller.hasPhotoFor(PhotoSlot.checkout)
+                    ? 'Foto presensi pulang sudah tersedia'
+                    : 'Opsional • waktu pulang dari timestamp foto',
               ),
               const SizedBox(height: 14),
               _photoSection(PhotoSlot.checkout, 'Tambah Foto Presensi Pulang'),
@@ -283,7 +293,9 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
           child: PrimaryButton(
             label: _controller.isSubmitting
                 ? 'Menyimpan lembur...'
-                : 'Simpan Lembur',
+                : widget.draft == null
+                ? 'Simpan Lembur'
+                : 'Simpan Perubahan',
             icon: _controller.isSubmitting ? null : Icons.save_outlined,
             isLoading: _controller.isSubmitting,
             onPressed: _controller.canSubmit ? _submit : null,
@@ -295,23 +307,47 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
 
   Widget _photoSection(PhotoSlot slot, String label) {
     final photo = _controller.photoFor(slot);
-    return PhotoUploadCard(
-      label: label,
-      photoFile: photo?.file,
-      timestampLabel: photo == null
-          ? null
-          : DateFormat('dd MMM yyyy • HH:mm', 'id_ID').format(photo.timestamp),
-      modeLabel: switch (photo?.mode) {
-        PhotoStampMode.manual => 'MANUAL TIMESTAMP',
-        PhotoStampMode.existingTimestamp => 'TIMESTAMP DARI FOTO',
-        _ => 'AUTO TIMESTAMP',
-      },
-      isProcessing: _controller.isProcessing(slot),
-      onTap: () => _choosePhoto(slot),
-      onRemove: () => _controller.removePhoto(slot),
-      onChangeTimestamp: photo?.mode == PhotoStampMode.existingTimestamp
-          ? null
-          : () => _changeTimestamp(slot),
+    final existingUrl = _controller.existingPhotoUrlFor(slot);
+    final existingTimestamp = _controller.existingPhotoTimestampFor(slot);
+    final field = slot == PhotoSlot.activity ? 'foto_kegiatan' : 'foto_pulang';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        PhotoUploadCard(
+          label: label,
+          photoFile: photo?.file,
+          existingImageUrl: photo == null ? existingUrl : null,
+          timestampLabel: photo != null
+              ? DateFormat('dd MMM yyyy • HH:mm', 'id_ID').format(photo.timestamp)
+              : existingTimestamp == null
+              ? null
+              : DateFormat(
+                  'dd MMM yyyy • HH:mm',
+                  'id_ID',
+                ).format(existingTimestamp),
+          modeLabel: switch (photo?.mode) {
+            PhotoStampMode.manual => 'MANUAL TIMESTAMP',
+            PhotoStampMode.existingTimestamp => 'TIMESTAMP DARI FOTO',
+            null when existingUrl != null => 'FOTO TERSIMPAN',
+            _ => 'AUTO TIMESTAMP',
+          },
+          isProcessing: _controller.isProcessing(slot),
+          onTap: () => _choosePhoto(slot),
+          onRemove: photo == null ? null : () => _controller.removePhoto(slot),
+          onChangeTimestamp:
+              photo == null || photo.mode == PhotoStampMode.existingTimestamp
+              ? null
+              : () => _changeTimestamp(slot),
+        ),
+        if (_controller.errors[field] case final String error)
+          Padding(
+            padding: const EdgeInsets.only(left: 12, top: 7),
+            child: Text(
+              error,
+              style: const TextStyle(color: AppColors.error, fontSize: 12),
+            ),
+          ),
+      ],
     );
   }
 
