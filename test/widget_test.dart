@@ -31,6 +31,7 @@ void main() {
           repository: _FakeOvertimeRepository(),
           onStart: () async => false,
           onContinue: (_) async => false,
+          onLogout: () async {},
           onSessionExpired: () async {},
         ),
       ),

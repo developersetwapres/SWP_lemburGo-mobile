@@ -567,9 +567,13 @@ class _ManualTimestampSheet extends StatefulWidget {
 class _ManualTimestampSheetState extends State<_ManualTimestampSheet> {
   DateTime _date = DateTime.now();
   TimeOfDay _time = TimeOfDay.now();
-  final _road = TextEditingController();
-  final _districtCity = TextEditingController();
-  final _province = TextEditingController();
+  final _road = TextEditingController(text: 'Jalan merdeka selatan No. 5');
+  final _districtCity = TextEditingController(
+    text: 'Kecamatan Gambir, Jakarta Pusat',
+  );
+  final _province = TextEditingController(
+    text: 'Daerah Khusus Ibukota Jakarta',
+  );
 
   @override
   void dispose() {

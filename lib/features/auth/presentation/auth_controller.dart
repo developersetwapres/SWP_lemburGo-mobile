@@ -10,6 +10,7 @@ class AuthController extends ChangeNotifier {
   AuthUser? user;
   bool isCheckingSession = true;
   bool isLoggingIn = false;
+  bool isLoggingOut = false;
   String? errorMessage;
 
   Future<void> restoreSession() async {
@@ -43,7 +44,21 @@ class AuthController extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    await _repository.logout();
+    if (isLoggingOut) return;
+    isLoggingOut = true;
+    notifyListeners();
+    try {
+      await _repository.logout();
+    } finally {
+      user = null;
+      errorMessage = null;
+      isLoggingOut = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> expireSession() async {
+    await _repository.clearSession();
     user = null;
     errorMessage = null;
     notifyListeners();

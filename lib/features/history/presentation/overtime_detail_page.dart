@@ -21,29 +21,114 @@ class OvertimeDetailPage extends StatelessWidget {
       title: const Text('Detail Lembur'),
       titleTextStyle: Theme.of(context).textTheme.titleLarge,
     ),
-    body: SafeArea(
-      top: false,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+    body: SafeArea(top: false, child: OvertimeDetailContent(record: record)),
+  );
+}
+
+class OvertimeDetailContent extends StatelessWidget {
+  const OvertimeDetailContent({
+    required this.record,
+    this.scrollController,
+    super.key,
+  });
+
+  final DraftOvertime record;
+  final ScrollController? scrollController;
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+    controller: scrollController,
+    padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _StatusHeader(record: record),
+        const SizedBox(height: 24),
+        _DetailCard(record: record),
+        const SizedBox(height: 24),
+        _PhotoDetail(
+          title: 'Foto Kegiatan',
+          url: record.activityPhotoUrl,
+          timestamp: record.activityPhotoAt,
+          emptyMessage: 'Foto kegiatan belum tersedia.',
+        ),
+        const SizedBox(height: 20),
+        _PhotoDetail(
+          title: 'Foto Presensi Pulang',
+          url: record.checkoutPhotoUrl,
+          timestamp: record.checkoutPhotoAt,
+          emptyMessage: 'Foto presensi pulang belum tersedia.',
+        ),
+      ],
+    ),
+  );
+}
+
+class OvertimeDetailBottomSheet extends StatelessWidget {
+  const OvertimeDetailBottomSheet({required this.record, super.key});
+
+  final DraftOvertime record;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+    tween: Tween(begin: 1, end: 0),
+    duration: const Duration(milliseconds: 320),
+    curve: Curves.easeOutCubic,
+    builder: (context, offset, child) => Opacity(
+      opacity: 1 - (offset * .2),
+      child: Transform.translate(offset: Offset(0, 24 * offset), child: child),
+    ),
+    child: DraggableScrollableSheet(
+      initialChildSize: .82,
+      minChildSize: .5,
+      maxChildSize: .95,
+      expand: false,
+      builder: (context, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _StatusHeader(record: record),
-            const SizedBox(height: 24),
-            _DetailCard(record: record),
-            const SizedBox(height: 24),
-            _PhotoDetail(
-              title: 'Foto Kegiatan',
-              url: record.activityPhotoUrl,
-              timestamp: record.activityPhotoAt,
-              emptyMessage: 'Foto kegiatan belum tersedia.',
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 12, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.border,
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                          ),
+                        ),
+                        Text(
+                          'Detail Lembur',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Tutup',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 20),
-            _PhotoDetail(
-              title: 'Foto Presensi Pulang',
-              url: record.checkoutPhotoUrl,
-              timestamp: record.checkoutPhotoAt,
-              emptyMessage: 'Foto presensi pulang belum tersedia.',
+            Expanded(
+              child: OvertimeDetailContent(
+                record: record,
+                scrollController: scrollController,
+              ),
             ),
           ],
         ),

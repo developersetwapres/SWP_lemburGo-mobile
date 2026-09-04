@@ -17,6 +17,7 @@ class HomePage extends StatefulWidget {
     required this.repository,
     required this.onStart,
     required this.onContinue,
+    required this.onLogout,
     required this.onSessionExpired,
     super.key,
   });
@@ -25,6 +26,7 @@ class HomePage extends StatefulWidget {
   final OvertimeRepository repository;
   final Future<bool> Function() onStart;
   final Future<bool> Function(DraftOvertime draft) onContinue;
+  final Future<void> Function() onLogout;
   final Future<void> Function() onSessionExpired;
 
   @override
@@ -80,6 +82,12 @@ class _HomePageState extends State<HomePage> {
     if (saved && mounted) await _refreshHome();
   }
 
+  Future<void> _showAccountSheet() => showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _AccountSheet(user: widget.user, onLogout: widget.onLogout),
+  );
+
   @override
   Widget build(BuildContext context) => SafeArea(
     child: AnimatedBuilder(
@@ -94,7 +102,10 @@ class _HomePageState extends State<HomePage> {
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _WelcomeHeader(userName: widget.user.name),
+                  _WelcomeHeader(
+                    userName: widget.user.name,
+                    onProfileTap: _showAccountSheet,
+                  ),
                   const SizedBox(height: 28),
                   _TodayOvertimeCard(onStart: _startOvertime),
                   const SizedBox(height: 16),
@@ -128,8 +139,9 @@ class _HomePageState extends State<HomePage> {
 }
 
 class _WelcomeHeader extends StatelessWidget {
-  const _WelcomeHeader({required this.userName});
+  const _WelcomeHeader({required this.userName, required this.onProfileTap});
   final String userName;
+  final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -160,31 +172,44 @@ class _WelcomeHeader extends StatelessWidget {
           ],
         ),
       ),
-      Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.skyBlue, AppColors.skyBlueDark],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(17),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x331688E8),
-              blurRadius: 14,
-              offset: Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Center(
-          child: Text(
-            userName.isEmpty ? 'U' : userName.substring(0, 1).toUpperCase(),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
+      Semantics(
+        button: true,
+        label: 'Buka menu akun',
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onProfileTap,
+            borderRadius: BorderRadius.circular(17),
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppColors.skyBlue, AppColors.skyBlueDark],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(17),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x331688E8),
+                    blurRadius: 14,
+                    offset: Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  userName.isEmpty
+                      ? 'U'
+                      : userName.substring(0, 1).toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -202,6 +227,139 @@ class _WelcomeHeader extends StatelessWidget {
 
   String _todayLabel() =>
       DateFormat('EEEE, d MMMM y', 'id_ID').format(DateTime.now());
+}
+
+class _AccountSheet extends StatefulWidget {
+  const _AccountSheet({required this.user, required this.onLogout});
+
+  final AuthUser user;
+  final Future<void> Function() onLogout;
+
+  @override
+  State<_AccountSheet> createState() => _AccountSheetState();
+}
+
+class _AccountSheetState extends State<_AccountSheet> {
+  bool _isLoggingOut = false;
+
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.logout_rounded, color: AppColors.skyBlue),
+        title: const Text('Keluar dari akun?'),
+        content: const Text(
+          'Anda perlu masuk kembali untuk mengakses laporan lembur.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Keluar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isLoggingOut = true);
+    await widget.onLogout();
+  }
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: Container(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.border,
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+          const SizedBox(height: 22),
+          Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.skyBlueLight,
+                  borderRadius: BorderRadius.circular(17),
+                ),
+                child: Text(
+                  widget.user.name.isEmpty
+                      ? 'U'
+                      : widget.user.name.substring(0, 1).toUpperCase(),
+                  style: const TextStyle(
+                    color: AppColors.skyBlue,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.user.name,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      widget.user.email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          const Divider(height: 1),
+          const SizedBox(height: 10),
+          ListTile(
+            enabled: !_isLoggingOut,
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.logout_rounded, color: AppColors.error),
+            title: const Text(
+              'Keluar dari akun',
+              style: TextStyle(
+                color: AppColors.error,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            subtitle: const Text('Akhiri sesi pada perangkat ini'),
+            trailing: _isLoggingOut
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.chevron_right_rounded),
+            onTap: _confirmLogout,
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _TodayOvertimeCard extends StatelessWidget {
@@ -339,139 +497,223 @@ class _DraftSection extends StatelessWidget {
 
 class _DraftCard extends StatelessWidget {
   const _DraftCard({required this.draft, required this.onContinue});
+
   final DraftOvertime draft;
   final VoidCallback onContinue;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onContinue,
-    borderRadius: BorderRadius.circular(22),
-    child: AppCard(
-      padding: const EdgeInsets.all(17),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.skyBlueLight,
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: Text(
-                  DateFormat(
-                    'dd\nMMM',
-                    'id_ID',
-                  ).format(draft.activityDate).toUpperCase(),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.skyBlue,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    height: 1.1,
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onContinue,
+      borderRadius: BorderRadius.circular(22),
+      child: AppCard(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DraftDateBadge(date: draft.activityDate),
+                const SizedBox(width: 13),
+
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        draft.activityName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on_outlined,
+                            size: 15,
+                            color: AppColors.muted,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              draft.location,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: AppColors.muted,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Text(
-                  DateFormat('d MMMM y', 'id_ID').format(draft.activityDate),
-                  style: Theme.of(context).textTheme.titleSmall,
+
+                const SizedBox(width: 10),
+
+                _DraftStatusChip(status: draft.status),
+              ],
+            ),
+
+            const SizedBox(height: 18),
+
+            _DraftProgress(draft: draft),
+
+            const SizedBox(height: 16),
+
+            Container(height: 1, color: AppColors.border.withOpacity(.55)),
+
+            const SizedBox(height: 12),
+
+            Row(
+              children: [
+                const Icon(
+                  Icons.edit_note_rounded,
+                  size: 18,
+                  color: AppColors.skyBlue,
                 ),
-              ),
-              _DraftStatusChip(status: draft.status),
-            ],
-          ),
-          const SizedBox(height: 15),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Lanjutkan',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppColors.skyBlue,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_rounded,
+                  size: 18,
+                  color: AppColors.skyBlue,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DraftDateBadge extends StatelessWidget {
+  const _DraftDateBadge({required this.date});
+
+  final DateTime date;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 40,
+      height: 44,
+      decoration: BoxDecoration(
+        color: AppColors.skyBlueLight,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
           Text(
-            draft.activityName,
-            style: Theme.of(context).textTheme.titleMedium,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+            DateFormat('dd', 'id_ID').format(date),
+            style: const TextStyle(
+              color: AppColors.skyBlue,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              height: 1,
+            ),
           ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Icon(
-                Icons.location_on_outlined,
-                color: AppColors.muted,
-                size: 17,
-              ),
-              const SizedBox(width: 5),
-              Expanded(
-                child: Text(
-                  draft.location,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 17),
-          _DraftProgress(draft: draft),
-          const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: onContinue,
-              icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-              label: const Text('Lanjutkan'),
+          const SizedBox(height: 4),
+          Text(
+            DateFormat('MMM', 'id_ID').format(date).toUpperCase(),
+            style: const TextStyle(
+              color: AppColors.skyBlue,
+              fontSize: 8.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .7,
+              height: 1,
             ),
           ),
         ],
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _DraftStatusChip extends StatelessWidget {
   const _DraftStatusChip({required this.status});
+
   final String status;
+
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-    decoration: BoxDecoration(
-      color: AppColors.warningLight,
-      borderRadius: BorderRadius.circular(99),
-    ),
-    child: Text(
-      status.toUpperCase(),
-      style: const TextStyle(
-        color: AppColors.warning,
-        fontWeight: FontWeight.w800,
-        fontSize: 10,
-        letterSpacing: .4,
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.warningLight,
+        borderRadius: BorderRadius.circular(99),
       ),
-    ),
-  );
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: const BoxDecoration(
+              color: AppColors.warning,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            status.toUpperCase(),
+            style: const TextStyle(
+              color: AppColors.warning,
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              letterSpacing: .35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DraftProgress extends StatelessWidget {
   const _DraftProgress({required this.draft});
+
   final DraftOvertime draft;
+
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      const Expanded(child: _ProgressStep(label: 'Data', complete: true)),
-      Expanded(
-        child: _ProgressStep(
-          label: 'Kegiatan',
-          complete: draft.hasActivityPhoto,
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(child: _ProgressStep(label: 'Data', complete: true)),
+        Expanded(
+          child: _ProgressStep(
+            label: 'Kegiatan',
+            complete: draft.hasActivityPhoto,
+          ),
         ),
-      ),
-      Expanded(
-        child: _ProgressStep(
-          label: 'Pulang',
-          complete: draft.hasCheckoutPhoto,
-          last: true,
+        Expanded(
+          child: _ProgressStep(
+            label: 'Pulang',
+            complete: draft.hasCheckoutPhoto,
+            last: true,
+          ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 class _ProgressStep extends StatelessWidget {
@@ -480,43 +722,62 @@ class _ProgressStep extends StatelessWidget {
     required this.complete,
     this.last = false,
   });
+
   final String label;
   final bool complete;
   final bool last;
+
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(
-        complete
-            ? Icons.check_circle_rounded
-            : Icons.radio_button_unchecked_rounded,
-        size: 17,
-        color: complete ? AppColors.success : AppColors.muted,
-      ),
-      const SizedBox(width: 4),
-      Flexible(
-        child: Text(
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 22,
+          height: 22,
+          decoration: BoxDecoration(
+            color: complete
+                ? AppColors.success
+                : AppColors.border.withOpacity(.45),
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: Icon(
+            complete ? Icons.check_rounded : Icons.circle_outlined,
+            size: complete ? 14 : 10,
+            color: complete ? Colors.white : AppColors.muted,
+          ),
+        ),
+
+        const SizedBox(width: 6),
+
+        Text(
           label,
-          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
           style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+            fontSize: 10.5,
+            fontWeight: complete ? FontWeight.w700 : FontWeight.w500,
             color: complete ? AppColors.navy : AppColors.muted,
           ),
         ),
-      ),
-      if (!last)
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 5),
-          child: Icon(
-            Icons.chevron_right_rounded,
-            size: 15,
-            color: AppColors.border,
+
+        if (!last) ...[
+          const SizedBox(width: 6),
+          Expanded(
+            child: Container(
+              height: 1.5,
+              margin: const EdgeInsets.only(right: 6),
+              decoration: BoxDecoration(
+                color: complete
+                    ? AppColors.success.withOpacity(.25)
+                    : AppColors.border.withOpacity(.55),
+                borderRadius: BorderRadius.circular(99),
+              ),
+            ),
           ),
-        ),
-    ],
-  );
+        ],
+      ],
+    );
+  }
 }
 
 class _DraftSkeleton extends StatelessWidget {

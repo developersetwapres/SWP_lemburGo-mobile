@@ -71,9 +71,7 @@ class _CalendarPageState extends State<CalendarPage> {
     });
   }
 
-  Future<void> _openDetail() async {
-    final entry = _controller.entryFor(_selectedDate);
-    if (entry == null) return;
+  Future<void> _openDetail(CalendarOvertime entry) async {
     final result = await _controller.loadDetail(entry);
     if (!mounted) return;
     if (result.unauthenticated) {
@@ -81,10 +79,15 @@ class _CalendarPageState extends State<CalendarPage> {
       return;
     }
     if (result.record != null) {
-      await Navigator.of(context).push<void>(
-        MaterialPageRoute(
-          builder: (_) => OvertimeDetailPage(record: result.record!),
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        sheetAnimationStyle: const AnimationStyle(
+          duration: Duration(milliseconds: 320),
+          reverseDuration: Duration(milliseconds: 240),
         ),
+        builder: (_) => OvertimeDetailBottomSheet(record: result.record!),
       );
       return;
     }
@@ -96,6 +99,12 @@ class _CalendarPageState extends State<CalendarPage> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  Future<void> _onDateSelected(DateTime date) async {
+    setState(() => _selectedDate = date);
+    final entry = _controller.entryFor(date);
+    if (entry != null) await _openDetail(entry);
   }
 
   @override
@@ -129,9 +138,7 @@ class _CalendarPageState extends State<CalendarPage> {
                             selectedDate: _selectedDate,
                             entriesByDate: _controller.entriesByDate,
                             holidayCalendar: _holidayCalendar,
-                            onDateSelected: (date) {
-                              setState(() => _selectedDate = date);
-                            },
+                            onDateSelected: _onDateSelected,
                           ),
                   ),
                   const SizedBox(height: 13),
@@ -143,14 +150,10 @@ class _CalendarPageState extends State<CalendarPage> {
                       onRetry: () => _loadCalendar(showSkeleton: true),
                     ),
                   ],
-                  const SizedBox(height: 22),
-                  _SelectedDateCard(
-                    date: _selectedDate,
-                    entry: _controller.entryFor(_selectedDate),
-                    isOpeningDetail: _controller.isOpeningDetail,
-                    onOpenDetail: _openDetail,
-                    hasAnyOvertime: _controller.entriesByDate.isNotEmpty,
-                  ),
+                  if (_controller.isOpeningDetail) ...[
+                    const SizedBox(height: 18),
+                    const _DetailLoadingIndicator(),
+                  ],
                 ]),
               ),
             ),
@@ -259,109 +262,21 @@ class _LegendItem extends StatelessWidget {
   );
 }
 
-class _SelectedDateCard extends StatelessWidget {
-  const _SelectedDateCard({
-    required this.date,
-    required this.entry,
-    required this.isOpeningDetail,
-    required this.onOpenDetail,
-    required this.hasAnyOvertime,
-  });
-  final DateTime date;
-  final CalendarOvertime? entry;
-  final bool isOpeningDetail;
-  final VoidCallback onOpenDetail;
-  final bool hasAnyOvertime;
+class _DetailLoadingIndicator extends StatelessWidget {
+  const _DetailLoadingIndicator();
 
   @override
-  Widget build(BuildContext context) => AnimatedSwitcher(
-    duration: const Duration(milliseconds: 180),
-    child: AppCard(
-      key: ValueKey(
-        '${date.year}-${date.month}-${date.day}-${entry?.overtimeId}',
+  Widget build(BuildContext context) => const Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      SizedBox(
+        width: 17,
+        height: 17,
+        child: CircularProgressIndicator(strokeWidth: 2),
       ),
-      color: entry == null ? AppColors.surface : AppColors.successLight,
-      padding: const EdgeInsets.all(18),
-      child: entry == null
-          ? Row(
-              children: [
-                Container(
-                  width: 43,
-                  height: 43,
-                  decoration: BoxDecoration(
-                    color: AppColors.skyBlueLight,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(
-                    Icons.event_available_outlined,
-                    color: AppColors.skyBlue,
-                  ),
-                ),
-                const SizedBox(width: 13),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        DateFormat('d MMMM y', 'id_ID').format(date),
-                        style: const TextStyle(
-                          color: AppColors.navy,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        hasAnyOvertime
-                            ? 'Belum ada lembur pada tanggal ini.'
-                            : 'Belum ada data lembur.',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.check_circle_rounded,
-                      color: AppColors.success,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Ada lembur pada tanggal ini',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  DateFormat('d MMMM y', 'id_ID').format(date),
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: isOpeningDetail ? null : onOpenDetail,
-                    icon: isOpeningDetail
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.arrow_forward_rounded),
-                    label: Text(
-                      isOpeningDetail ? 'Memuat Detail...' : 'Lihat Detail',
-                    ),
-                  ),
-                ),
-              ],
-            ),
-    ),
+      SizedBox(width: 9),
+      Text('Memuat detail lembur...'),
+    ],
   );
 }
 

@@ -151,9 +151,10 @@ Future<String> _burnTimestamp(_StampPayload payload) async {
   final dateLine =
       '${payload.timestamp.day.toString().padLeft(2, '0')} ${monthNames[payload.timestamp.month - 1]} ${payload.timestamp.year} | ${payload.timestamp.hour.toString().padLeft(2, '0')}:${payload.timestamp.minute.toString().padLeft(2, '0')} WIB';
   final lines = [dateLine, ...payload.addressLines.take(3)];
-  final padding = 30;
-  final lineHeight = 34;
-  final boxHeight = 34 + (lines.length * lineHeight);
+  const padding = 30;
+  const lineHeight = 32;
+  final fontSize = image.arial24;
+  final boxHeight = 28 + (lines.length * lineHeight);
   final left = padding;
   final bottom = padding;
   final top = decoded.height - boxHeight - bottom;
@@ -166,17 +167,17 @@ Future<String> _burnTimestamp(_StampPayload payload) async {
     color: image.ColorRgba8(9, 24, 42, 205),
     radius: 18,
   );
-  var lineY = top + 22;
+  var lineY = top + 14;
   for (var index = 0; index < lines.length; index++) {
     image.drawString(
       decoded,
       lines[index],
-      font: index == 0 ? image.arial48 : image.arial24,
+      font: fontSize,
       x: left + 22,
       y: lineY,
       color: image.ColorRgba8(255, 255, 255, 255),
     );
-    lineY += index == 0 ? 54 : lineHeight;
+    lineY += lineHeight;
   }
   var quality = 92;
   var bytes = image.encodeJpg(decoded, quality: quality);

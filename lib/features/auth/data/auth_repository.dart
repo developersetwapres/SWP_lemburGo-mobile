@@ -71,5 +71,22 @@ class AuthRepository {
     }
   }
 
-  Future<void> logout() => _storage.clear();
+  Future<void> logout() async {
+    final token = await _storage.readToken();
+    if (token == null || token.isEmpty) {
+      await _storage.clear();
+      return;
+    }
+
+    try {
+      await _dio.post<Map<String, dynamic>>('/auth/logout');
+    } on DioException {
+      // Local credentials are always removed so the user can safely leave
+      // this device even when the server cannot be reached.
+    } finally {
+      await _storage.clear();
+    }
+  }
+
+  Future<void> clearSession() => _storage.clear();
 }
