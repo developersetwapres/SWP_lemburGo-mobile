@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import 'remote_image.dart';
 
 /// One photo input used for both create and draft editing. A remote URL is
 /// display-only; a [photoFile] is a newly selected local file that can upload.
@@ -97,7 +98,10 @@ class _EmptyPhoto extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.add_circle_outline_rounded, color: AppColors.skyBlue),
+            const Icon(
+              Icons.add_circle_outline_rounded,
+              color: AppColors.skyBlue,
+            ),
           ],
         ),
       ),
@@ -119,7 +123,11 @@ class _ProcessingPhotoCard extends StatelessWidget {
     child: const Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)),
+        SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(strokeWidth: 2.5),
+        ),
         SizedBox(width: 12),
         Text('Menyiapkan foto dan lokasi...'),
       ],
@@ -172,15 +180,29 @@ class _PhotoPreview extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.successLight,
                         borderRadius: BorderRadius.circular(99),
                       ),
-                      child: Text(modeLabel, style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.w700, fontSize: 11)),
+                      child: Text(
+                        modeLabel,
+                        style: const TextStyle(
+                          color: AppColors.success,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 7),
-                    Text(timestampLabel, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.navy)),
+                    Text(
+                      timestampLabel,
+                      style: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(color: AppColors.navy),
+                    ),
                   ],
                 ),
               ),
@@ -200,13 +222,25 @@ class _PhotoPreview extends StatelessWidget {
                   }
                 },
                 itemBuilder: (context) => [
-                  const PopupMenuItem(value: _PhotoAction.replace, child: Text('Ganti Foto')),
+                  const PopupMenuItem(
+                    value: _PhotoAction.replace,
+                    child: Text('Ganti Foto'),
+                  ),
                   if (onChangeTimestamp != null)
-                    const PopupMenuItem(value: _PhotoAction.changeTimestamp, child: Text('Ubah Timestamp')),
+                    const PopupMenuItem(
+                      value: _PhotoAction.changeTimestamp,
+                      child: Text('Ubah Timestamp'),
+                    ),
                   if (onRemove != null)
-                    const PopupMenuItem(value: _PhotoAction.remove, child: Text('Hapus Foto')),
+                    const PopupMenuItem(
+                      value: _PhotoAction.remove,
+                      child: Text('Hapus Foto'),
+                    ),
                 ],
-                icon: const Icon(Icons.more_horiz_rounded, color: AppColors.skyBlue),
+                icon: const Icon(
+                  Icons.more_horiz_rounded,
+                  color: AppColors.skyBlue,
+                ),
               ),
             ],
           ),
@@ -217,13 +251,17 @@ class _PhotoPreview extends StatelessWidget {
 
   Widget _image() {
     if (file != null) {
-      return Image.file(file!, fit: BoxFit.cover, errorBuilder: (_, _, _) => const _BrokenImage());
+      return Image.file(
+        file!,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => const _BrokenImage(),
+      );
     }
-    return Image.network(
-      remoteUrl!,
+    return RemoteImage(
+      url: remoteUrl!,
       fit: BoxFit.cover,
-      loadingBuilder: (context, child, progress) => progress == null ? child : const _PhotoLoading(),
-      errorBuilder: (_, _, _) => const _BrokenImage(),
+      loading: const _PhotoLoading(),
+      error: const _BrokenImage(),
     );
   }
 }
@@ -235,7 +273,9 @@ class _BrokenImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => const ColoredBox(
     color: AppColors.navy,
-    child: Center(child: Icon(Icons.broken_image_outlined, color: Colors.white)),
+    child: Center(
+      child: Icon(Icons.broken_image_outlined, color: Colors.white),
+    ),
   );
 }
 

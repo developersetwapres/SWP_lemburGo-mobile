@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/remote_image.dart';
 import '../../overtime/data/models/draft_overtime.dart';
 
 class OvertimeDetailPage extends StatelessWidget {
@@ -297,10 +298,11 @@ class _PhotoDetail extends StatelessWidget {
                 children: [
                   AspectRatio(
                     aspectRatio: 1.5,
-                    child: Image.network(
-                      url!,
+                    child: RemoteImage(
+                      url: url!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const _ImageError(),
+                      loading: const Center(child: CircularProgressIndicator()),
+                      error: const _ImageError(),
                     ),
                   ),
                   Padding(
@@ -347,10 +349,11 @@ class _PhotoDetail extends StatelessWidget {
         children: [
           Center(
             child: InteractiveViewer(
-              child: Image.network(
-                url!,
+              child: RemoteImage(
+                url: url!,
                 fit: BoxFit.contain,
-                errorBuilder: (_, _, _) => const _ImageError(),
+                loading: const Center(child: CircularProgressIndicator()),
+                error: const _ImageError(),
               ),
             ),
           ),
