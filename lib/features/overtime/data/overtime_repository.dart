@@ -144,7 +144,7 @@ class OvertimeRepository {
           ? fields
           : _toFormData(fields);
       final response = await _dio.put<Map<String, dynamic>>(
-        '/lemburs/${draft.id}',
+        '/lemburs/${draft.uuid}',
         data: data,
       );
       return _messageFromResponse(response.data) ??
