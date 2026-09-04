@@ -169,6 +169,17 @@ class OvertimeRepository {
     }
   }
 
+  Future<String> delete(String uuid) async {
+    try {
+      final response = await _dio.delete<Map<String, dynamic>>(
+        '/lemburs/delete/$uuid',
+      );
+      return _messageFromResponse(response.data) ?? 'Lembur berhasil dihapus.';
+    } on DioException catch (error) {
+      throw _apiClient.exceptionFrom(error);
+    }
+  }
+
   FormData _toFormData(Map<String, dynamic> fields) {
     final formData = FormData();
     fields.forEach((key, value) {

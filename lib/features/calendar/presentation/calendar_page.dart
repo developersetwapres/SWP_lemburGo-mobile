@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../history/presentation/overtime_detail_page.dart';
+import '../../overtime/data/overtime_repository.dart';
 import '../data/models/calendar_overtime.dart';
 import '../data/services/holiday_calendar.dart';
 import 'calendar_controller.dart';
@@ -12,12 +13,14 @@ import 'widgets/calendar_month_grid.dart';
 class CalendarPage extends StatefulWidget {
   const CalendarPage({
     required this.controller,
+    required this.repository,
     required this.onSessionExpired,
     required this.isActive,
     super.key,
   });
 
   final CalendarController controller;
+  final OvertimeRepository repository;
   final Future<void> Function() onSessionExpired;
   final bool isActive;
 
@@ -79,7 +82,7 @@ class _CalendarPageState extends State<CalendarPage> {
       return;
     }
     if (result.record != null) {
-      await showModalBottomSheet<void>(
+      final deleteMessage = await showModalBottomSheet<String>(
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
@@ -87,8 +90,17 @@ class _CalendarPageState extends State<CalendarPage> {
           duration: Duration(milliseconds: 320),
           reverseDuration: Duration(milliseconds: 240),
         ),
-        builder: (_) => OvertimeDetailBottomSheet(record: result.record!),
+        builder: (_) => OvertimeDetailBottomSheet(
+          record: result.record!,
+          repository: widget.repository,
+          onSessionExpired: widget.onSessionExpired,
+        ),
       );
+      if (!mounted || deleteMessage == null) return;
+      await _loadCalendar();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(deleteMessage)));
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(

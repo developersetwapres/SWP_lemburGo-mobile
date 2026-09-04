@@ -30,6 +30,29 @@ class DraftOvertime {
   bool get hasActivityPhoto => activityPhotoUrl != null;
   bool get hasCheckoutPhoto => checkoutPhotoUrl != null;
 
+  String get normalizedStatus => normalizeStatus(status);
+
+  bool get isFinalized => isFinalizedStatus(status);
+
+  String get statusLabel => labelForStatus(status);
+
+  static String normalizeStatus(String value) => value.trim().toLowerCase();
+
+  static bool isFinalizedStatus(String value) =>
+      switch (normalizeStatus(value)) {
+        'locked' => true,
+        _ => false,
+      };
+
+  static String labelForStatus(String value) => switch (normalizeStatus(
+    value,
+  )) {
+    'locked' => 'TERKUNCI',
+    'complete' || 'completed' => 'SELESAI',
+    'draft' => 'DRAFT',
+    _ => value.trim().isEmpty ? 'STATUS TIDAK DIKETAHUI' : value.toUpperCase(),
+  };
+
   factory DraftOvertime.fromJson(Map<String, dynamic> json) {
     final attributes = Map<String, dynamic>.from(
       json['attributes'] as Map? ?? const <String, dynamic>{},

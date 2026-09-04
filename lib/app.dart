@@ -201,6 +201,7 @@ class _AppShellState extends State<AppShell> {
         ),
         CalendarPage(
           controller: _calendarController,
+          repository: widget.overtimeRepository,
           onSessionExpired: widget.authController.expireSession,
           isActive: _selectedIndex == 2,
         ),

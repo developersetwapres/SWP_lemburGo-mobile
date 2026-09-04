@@ -105,14 +105,25 @@ class _HistoryPageState extends State<HistoryPage> {
     }
 
     if (!mounted) return;
-    if (detail.status.toLowerCase() == 'locked') {
-      await Navigator.of(context).push<void>(
-        MaterialPageRoute(builder: (_) => OvertimeDetailPage(record: detail)),
+    if (detail.isFinalized) {
+      final deleteMessage = await Navigator.of(context).push<String>(
+        MaterialPageRoute(
+          builder: (_) => OvertimeDetailPage(
+            record: detail,
+            repository: widget.repository,
+            onSessionExpired: widget.onSessionExpired,
+          ),
+        ),
       );
-      return;
+      if (!mounted || deleteMessage == null) return;
+      await _refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(deleteMessage)));
+    } else {
+      final saved = await widget.onEdit(detail);
+      if (saved && mounted) await _refresh();
     }
-    final saved = await widget.onEdit(detail);
-    if (saved && mounted) await _refresh();
   }
 
   @override
@@ -495,7 +506,7 @@ class _HistoryCard extends StatelessWidget {
   const _HistoryCard({required this.record, required this.onTap});
   final DraftOvertime record;
   final VoidCallback onTap;
-  bool get _isLocked => record.status.toLowerCase() == 'locked';
+  bool get _isLocked => record.isFinalized;
   @override
   Widget build(BuildContext context) => InkWell(
     onTap: onTap,
@@ -510,7 +521,7 @@ class _HistoryCard extends StatelessWidget {
             height: 54,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: _isLocked
+              color: record.isFinalized
                   ? const Color(0xFFEAF1F6)
                   : AppColors.skyBlueLight,
               borderRadius: BorderRadius.circular(15),
@@ -522,7 +533,7 @@ class _HistoryCard extends StatelessWidget {
               ).format(record.activityDate).toUpperCase(),
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: _isLocked ? AppColors.muted : AppColors.skyBlue,
+                color: record.isFinalized ? AppColors.muted : AppColors.skyBlue,
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 height: 1.1,
@@ -581,8 +592,8 @@ class _HistoryCard extends StatelessWidget {
                 Row(
                   children: [
                     Icon(
-                      _isLocked
-                          ? Icons.lock_outline_rounded
+                      record.isFinalized
+                          ? Icons.check_circle_outline_rounded
                           : Icons.schedule_rounded,
                       size: 16,
                       color: AppColors.muted,
@@ -600,7 +611,7 @@ class _HistoryCard extends StatelessWidget {
                     ),
                     const Spacer(),
                     Icon(
-                      _isLocked
+                      record.isFinalized
                           ? Icons.chevron_right_rounded
                           : Icons.edit_outlined,
                       color: AppColors.skyBlue,
@@ -622,7 +633,9 @@ class _StatusChip extends StatelessWidget {
   final String status;
   @override
   Widget build(BuildContext context) {
-    final locked = status.toLowerCase() == 'locked';
+    final recordStatus = DraftOvertime.normalizeStatus(status);
+    final locked = recordStatus == 'locked';
+    final finalized = DraftOvertime.isFinalizedStatus(status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -635,16 +648,16 @@ class _StatusChip extends StatelessWidget {
           Icon(
             locked ? Icons.lock_outline_rounded : Icons.edit_note_rounded,
             size: 13,
-            color: locked ? AppColors.muted : AppColors.warning,
+            color: finalized ? AppColors.success : AppColors.warning,
           ),
           const SizedBox(width: 4),
           Text(
-            locked ? 'TERKUNCI' : 'DRAFT',
+            DraftOvertime.labelForStatus(status),
             style: TextStyle(
               fontSize: 10,
               letterSpacing: .3,
               fontWeight: FontWeight.w800,
-              color: locked ? AppColors.muted : AppColors.warning,
+              color: finalized ? AppColors.muted : AppColors.warning,
             ),
           ),
         ],
