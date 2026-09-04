@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/primary_button.dart';
+import '../../../shared/widgets/app_logo.dart';
 import 'auth_controller.dart';
 
 class LoginPage extends StatefulWidget {
@@ -121,7 +122,7 @@ class _LoginPageState extends State<LoginPage> {
                   builder: (context, _) => PrimaryButton(
                     label: widget.controller.isLoggingIn
                         ? 'Memeriksa akun...'
-                        : 'Masuk ke LemburIN',
+                        : 'Masuk ke LemburNakIT',
                     icon: widget.controller.isLoggingIn
                         ? null
                         : Icons.arrow_forward_rounded,
@@ -145,36 +146,13 @@ class _BrandMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      Container(
-        width: 54,
-        height: 54,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppColors.skyBlue, AppColors.skyBlueDark],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x2B1688E8),
-              blurRadius: 18,
-              offset: Offset(0, 8),
-            ),
-          ],
-        ),
-        child: const Icon(
-          Icons.timelapse_rounded,
-          color: Colors.white,
-          size: 30,
-        ),
-      ),
+      const AppLogo(size: 64),
       const SizedBox(width: 12),
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'LemburIN',
+            'LemburNakIT',
             style: Theme.of(context).textTheme.titleLarge
                 ?.copyWith(fontSize: 21),
           ),

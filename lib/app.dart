@@ -16,15 +16,16 @@ import 'features/overtime/data/overtime_repository.dart';
 import 'features/overtime/data/services/photo_processing_service.dart';
 import 'features/overtime/presentation/overtime_form_page.dart';
 import 'shared/widgets/app_bottom_navigation.dart';
+import 'shared/widgets/app_logo.dart';
 
-class LemburInApp extends StatefulWidget {
-  const LemburInApp({super.key});
+class LemburNakITApp extends StatefulWidget {
+  const LemburNakITApp({super.key});
 
   @override
-  State<LemburInApp> createState() => _LemburInAppState();
+  State<LemburNakITApp> createState() => _LemburNakITAppState();
 }
 
-class _LemburInAppState extends State<LemburInApp> {
+class _LemburNakITAppState extends State<LemburNakITApp> {
   AuthController? _authController;
   OvertimeRepository? _overtimeRepository;
   PhotoProcessingService? _photoProcessingService;
@@ -84,7 +85,7 @@ class _LemburInAppState extends State<LemburInApp> {
     if (!_initialized) {
       if (_initializationError != null) {
         return MaterialApp(
-          title: 'LemburIN',
+          title: 'LemburNakIT',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
           home: _InitializationError(
@@ -100,14 +101,14 @@ class _LemburInAppState extends State<LemburInApp> {
       }
 
       return const MaterialApp(
-        title: 'LemburIN',
+        title: 'LemburNakIT',
         debugShowCheckedModeBanner: false,
         home: _SessionSplash(),
       );
     }
 
     return MaterialApp(
-      title: 'LemburIN',
+      title: 'LemburNakIT',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       home: AnimatedBuilder(
@@ -223,11 +224,14 @@ class _SessionSplash extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _AppGlyph(),
+          AppLogo(size: 104),
           SizedBox(height: 20),
           CircularProgressIndicator(),
           SizedBox(height: 12),
-          Text('Menyiapkan LemburIN', style: TextStyle(color: AppColors.muted)),
+          Text(
+            'Menyiapkan LemburNakIT',
+            style: TextStyle(color: AppColors.muted),
+          ),
         ],
       ),
     ),
@@ -262,22 +266,5 @@ class _InitializationError extends StatelessWidget {
         ),
       ),
     ),
-  );
-}
-
-class _AppGlyph extends StatelessWidget {
-  const _AppGlyph();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 64,
-    height: 64,
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [AppColors.skyBlue, AppColors.skyBlueDark],
-      ),
-      borderRadius: BorderRadius.circular(21),
-    ),
-    child: const Icon(Icons.timelapse_rounded, color: Colors.white, size: 34),
   );
 }

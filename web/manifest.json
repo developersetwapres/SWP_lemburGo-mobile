@@ -1,11 +1,11 @@
 {
-    "name": "kmz_lemburgo_mobile",
-    "short_name": "kmz_lemburgo_mobile",
+    "name": "LemburNakIT",
+    "short_name": "LemburNakIT",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "LemburNakIT - pelaporan lembur digital.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
