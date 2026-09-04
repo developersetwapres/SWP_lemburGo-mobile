@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/api/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/section_header.dart';
@@ -78,7 +79,27 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _continueDraft(DraftOvertime draft) async {
-    final saved = await widget.onContinue(draft);
+    DraftOvertime detail;
+    try {
+      detail = await widget.repository.fetchDetail(draft.uuid);
+    } on ApiException catch (error) {
+      if (mounted && error.isUnauthenticated) {
+        await widget.onSessionExpired();
+      } else if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+      return;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Detail lembur belum dapat dimuat.')),
+        );
+      }
+      return;
+    }
+
+    final saved = await widget.onContinue(detail);
     if (saved && mounted) await _refreshHome();
   }
 

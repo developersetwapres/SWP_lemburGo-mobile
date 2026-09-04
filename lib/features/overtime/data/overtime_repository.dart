@@ -28,6 +28,21 @@ class OvertimeRepository {
     }
   }
 
+  Future<DraftOvertime> fetchDetail(String uuid) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/lemburs/detail/$uuid',
+      );
+      final rawData = response.data?['data'];
+      if (rawData is! Map) {
+        throw const FormatException('Format detail lembur tidak valid.');
+      }
+      return DraftOvertime.fromJson(Map<String, dynamic>.from(rawData));
+    } on DioException catch (error) {
+      throw _apiClient.exceptionFrom(error);
+    }
+  }
+
   Future<OvertimeHistory> fetchHistory({int? month}) async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(

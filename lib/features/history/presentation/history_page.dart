@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/api/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/section_header.dart';
@@ -82,13 +83,35 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Future<void> _openRecord(DraftOvertime record) async {
-    if (record.status.toLowerCase() == 'locked') {
-      await Navigator.of(context).push<void>(
-        MaterialPageRoute(builder: (_) => OvertimeDetailPage(record: record)),
+    final messenger = ScaffoldMessenger.of(context);
+    DraftOvertime detail;
+    try {
+      detail = await widget.repository.fetchDetail(record.uuid);
+    } on ApiException catch (error) {
+      if (error.isUnauthenticated) {
+        if (!mounted) return;
+        await widget.onSessionExpired();
+        return;
+      }
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Detail lembur belum dapat dimuat.')),
       );
       return;
     }
-    final saved = await widget.onEdit(record);
+
+    if (!mounted) return;
+    if (detail.status.toLowerCase() == 'locked') {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(builder: (_) => OvertimeDetailPage(record: detail)),
+      );
+      return;
+    }
+    final saved = await widget.onEdit(detail);
     if (saved && mounted) await _refresh();
   }
 

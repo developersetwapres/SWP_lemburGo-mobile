@@ -1,9 +1,14 @@
 class CalendarOvertime {
-  const CalendarOvertime({required this.date, required this.overtimeId});
+  const CalendarOvertime({
+    required this.date,
+    required this.overtimeId,
+    required this.uuid,
+  });
 
   /// Calendar dates are intentionally parsed as local date-only values.
   final DateTime date;
   final int overtimeId;
+  final String uuid;
 
   String get dateKey => dateKeyFor(date);
 
@@ -11,7 +16,17 @@ class CalendarOvertime {
     return CalendarOvertime(
       date: parseDateOnly(json['tanggal']?.toString()),
       overtimeId: int.tryParse(json['lembur_id']?.toString() ?? '') ?? 0,
+      uuid: _uuid(json),
     );
+  }
+
+  static String _uuid(Map<String, dynamic> json) {
+    final attributes = json['attributes'];
+    final nestedUuid = attributes is Map ? attributes['uuid'] : null;
+    return (json['uuid'] ?? json['lembur_uuid'] ?? nestedUuid)
+            ?.toString()
+            .trim() ??
+        '';
   }
 
   static DateTime parseDateOnly(String? value) {

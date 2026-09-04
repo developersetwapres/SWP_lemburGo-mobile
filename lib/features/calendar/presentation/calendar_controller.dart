@@ -42,19 +42,20 @@ class CalendarController extends ChangeNotifier {
   CalendarOvertime? entryFor(DateTime date) =>
       entriesByDate[CalendarOvertime.dateKeyFor(date)];
 
-  /// The calendar endpoint only supplies an ID. Details are loaded on demand
-  /// for the one item the user explicitly asked to inspect.
+  /// Details are loaded on demand for the one item the user explicitly asked
+  /// to inspect.
   Future<CalendarDetailResult> loadDetail(CalendarOvertime entry) async {
     isOpeningDetail = true;
     notifyListeners();
     try {
-      final history = await _repository.fetchHistory(month: entry.date.month);
-      for (final record in history.records) {
-        if (record.id == entry.overtimeId.toString()) {
-          return CalendarDetailResult.record(record);
-        }
+      if (entry.uuid.isEmpty) {
+        return const CalendarDetailResult.error(
+          message: 'UUID lembur tidak tersedia dari data kalender.',
+        );
       }
-      return const CalendarDetailResult.notFound();
+      return CalendarDetailResult.record(
+        await _repository.fetchDetail(entry.uuid),
+      );
     } on ApiException catch (error) {
       return CalendarDetailResult.error(
         message: error.message,
