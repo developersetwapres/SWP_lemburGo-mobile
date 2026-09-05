@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../auth/data/models/auth_user.dart';
+import '../../history/presentation/overtime_detail_page.dart';
 import '../../overtime/data/models/draft_overtime.dart';
 import '../../overtime/data/models/year_overtime_summary.dart';
 import '../../overtime/data/overtime_repository.dart';
@@ -78,7 +79,7 @@ class _HomePageState extends State<HomePage> {
     if (saved && mounted) await _refreshHome();
   }
 
-  Future<void> _continueDraft(DraftOvertime draft) async {
+  Future<void> _openDraftDetail(DraftOvertime draft) async {
     DraftOvertime detail;
     try {
       detail = await widget.repository.fetchDetail(draft.uuid);
@@ -99,8 +100,31 @@ class _HomePageState extends State<HomePage> {
       return;
     }
 
-    final saved = await widget.onContinue(detail);
-    if (saved && mounted) await _refreshHome();
+    if (!mounted) return;
+    final detailResult = await Navigator.of(context).push<OvertimeDetailResult>(
+      MaterialPageRoute(
+        builder: (_) => OvertimeDetailPage(
+          record: detail,
+          repository: widget.repository,
+          onSessionExpired: widget.onSessionExpired,
+          canEdit: true,
+        ),
+      ),
+    );
+    if (!mounted || detailResult == null) return;
+
+    if (detailResult.requestsEdit) {
+      final saved = await widget.onContinue(detail);
+      if (saved && mounted) await _refreshHome();
+      return;
+    }
+
+    if (detailResult.wasDeleted) {
+      await _refreshHome();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(detailResult.deleteMessage!)));
+    }
   }
 
   Future<void> _showAccountSheet() => showModalBottomSheet<void>(
@@ -134,7 +158,7 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 30),
                   _DraftSection(
                     controller: _draftController,
-                    onContinue: _continueDraft,
+                    onContinue: _openDraftDetail,
                     onRetry: _loadDrafts,
                   ),
                   const SizedBox(height: 30),
@@ -598,14 +622,14 @@ class _DraftCard extends StatelessWidget {
             Row(
               children: [
                 const Icon(
-                  Icons.edit_note_rounded,
+                  Icons.visibility_outlined,
                   size: 18,
                   color: AppColors.skyBlue,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Lanjutkan',
+                    'Lihat detail',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: AppColors.skyBlue,
                       fontWeight: FontWeight.w700,
@@ -613,7 +637,7 @@ class _DraftCard extends StatelessWidget {
                   ),
                 ),
                 const Icon(
-                  Icons.arrow_forward_rounded,
+                  Icons.chevron_right_rounded,
                   size: 18,
                   color: AppColors.skyBlue,
                 ),

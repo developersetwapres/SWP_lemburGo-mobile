@@ -157,95 +157,289 @@ class _PhotoPreview extends StatelessWidget {
   final VoidCallback? onChangeTimestamp;
 
   @override
-  Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(22),
-      border: Border.all(color: AppColors.border),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(21)),
-          child: SizedBox(height: 190, width: double.infinity, child: _image()),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 12, 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.successLight,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        modeLabel,
-                        style: const TextStyle(
-                          color: AppColors.success,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Text(
-                      timestampLabel,
-                      style: Theme.of(context).textTheme.bodyMedium
-                          ?.copyWith(color: AppColors.navy),
-                    ),
-                  ],
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.successLight,
+                borderRadius: BorderRadius.circular(99),
+              ),
+              child: Text(
+                modeLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.success,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 11,
+                  letterSpacing: .25,
                 ),
               ),
-              PopupMenuButton<_PhotoAction>(
-                tooltip: 'Aksi foto',
-                onSelected: (action) {
-                  switch (action) {
-                    case _PhotoAction.replace:
-                      onReplace();
-                      break;
-                    case _PhotoAction.changeTimestamp:
-                      onChangeTimestamp?.call();
-                      break;
-                    case _PhotoAction.remove:
-                      onRemove?.call();
-                      break;
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: _PhotoAction.replace,
-                    child: Text('Ganti Foto'),
-                  ),
-                  if (onChangeTimestamp != null)
-                    const PopupMenuItem(
-                      value: _PhotoAction.changeTimestamp,
-                      child: Text('Ubah Timestamp'),
-                    ),
-                  if (onRemove != null)
-                    const PopupMenuItem(
-                      value: _PhotoAction.remove,
-                      child: Text('Hapus Foto'),
-                    ),
-                ],
-                icon: const Icon(
-                  Icons.more_horiz_rounded,
-                  color: AppColors.skyBlue,
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'Buka foto layar penuh',
+            onPressed: () => _showFullScreen(context),
+            icon: const Icon(Icons.open_in_full_rounded),
+            color: AppColors.skyBlue,
+          ),
+          PopupMenuButton<_PhotoAction>(
+            tooltip: 'Aksi foto',
+            onSelected: (action) {
+              switch (action) {
+                case _PhotoAction.replace:
+                  onReplace();
+                  break;
+                case _PhotoAction.changeTimestamp:
+                  onChangeTimestamp?.call();
+                  break;
+                case _PhotoAction.remove:
+                  onRemove?.call();
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: _PhotoAction.replace,
+                child: Text('Ganti Foto'),
+              ),
+              if (onChangeTimestamp != null)
+                const PopupMenuItem(
+                  value: _PhotoAction.changeTimestamp,
+                  child: Text('Ubah Timestamp'),
+                ),
+              if (onRemove != null)
+                const PopupMenuItem(
+                  value: _PhotoAction.remove,
+                  child: Text('Hapus Foto'),
+                ),
+            ],
+            icon: const Icon(
+              Icons.more_horiz_rounded,
+              color: AppColors.skyBlue,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 10),
+      Semantics(
+        button: true,
+        label: 'Buka $label dalam layar penuh',
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(22),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _showFullScreen(context),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppColors.navy,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: AspectRatio(
+                aspectRatio: 4 / 3,
+                // Contain shows the whole submitted photo instead of cropping it.
+                child: _image(BoxFit.contain),
+              ),
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(height: 10),
+      _PhotoTimestampPanel(timestampLabel: timestampLabel),
+    ],
+  );
+
+  void _showFullScreen(BuildContext context) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => _FormPhotoFullScreenPreview(
+          title: label,
+          timestampLabel: timestampLabel,
+          file: file,
+          remoteUrl: remoteUrl,
+        ),
+      ),
+    );
+  }
+
+  Widget _image(BoxFit fit) {
+    if (file != null) {
+      return Image.file(
+        file!,
+        fit: fit,
+        errorBuilder: (_, _, _) => const _BrokenImage(),
+      );
+    }
+    return RemoteImage(
+      url: remoteUrl!,
+      fit: fit,
+      loading: const _PhotoLoading(),
+      error: const _BrokenImage(),
+    );
+  }
+}
+
+class _PhotoTimestampPanel extends StatelessWidget {
+  const _PhotoTimestampPanel({required this.timestampLabel});
+
+  final String timestampLabel;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+    decoration: BoxDecoration(
+      color: AppColors.skyBlueLight,
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: AppColors.skyBlue,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(
+            Icons.schedule_rounded,
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 11),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'WAKTU FOTO',
+                style: TextStyle(
+                  color: AppColors.skyBlueDark,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: .65,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                timestampLabel,
+                style: const TextStyle(
+                  color: AppColors.navy,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
           ),
         ),
+        const Icon(Icons.zoom_in_rounded, color: AppColors.skyBlue, size: 22),
       ],
+    ),
+  );
+}
+
+class _FormPhotoFullScreenPreview extends StatelessWidget {
+  const _FormPhotoFullScreenPreview({
+    required this.title,
+    required this.timestampLabel,
+    required this.file,
+    required this.remoteUrl,
+  });
+
+  final String title;
+  final String timestampLabel;
+  final File? file;
+  final String? remoteUrl;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Colors.black,
+    body: SafeArea(
+      child: Stack(
+        children: [
+          Center(
+            child: InteractiveViewer(minScale: 1, maxScale: 4, child: _image()),
+          ),
+          Positioned(
+            top: 12,
+            left: 16,
+            child: Material(
+              color: Colors.black54,
+              shape: const CircleBorder(),
+              child: IconButton(
+                tooltip: 'Tutup foto',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded, color: Colors.white),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Color(0xDD000000)],
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 42, 24, 22),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    const Text(
+                      'WAKTU FOTO',
+                      style: TextStyle(
+                        color: Color(0xFF9FB3C8),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: .65,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      timestampLabel,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Cubit untuk memperbesar foto',
+                      style: TextStyle(color: Color(0xFFABB8C8), fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     ),
   );
 
@@ -253,13 +447,13 @@ class _PhotoPreview extends StatelessWidget {
     if (file != null) {
       return Image.file(
         file!,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         errorBuilder: (_, _, _) => const _BrokenImage(),
       );
     }
     return RemoteImage(
       url: remoteUrl!,
-      fit: BoxFit.cover,
+      fit: BoxFit.contain,
       loading: const _PhotoLoading(),
       error: const _BrokenImage(),
     );

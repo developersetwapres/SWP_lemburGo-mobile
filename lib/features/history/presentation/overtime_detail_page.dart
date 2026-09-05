@@ -729,29 +729,95 @@ class _PhotoTimestamp extends StatelessWidget {
   final DateTime? timestamp;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 13, 16, 15),
-    child: Row(
-      children: [
-        const Icon(Icons.access_time_rounded, size: 17, color: AppColors.muted),
-        const SizedBox(width: 7),
-        Expanded(
-          child: Text(
-            timestamp == null
-                ? 'Waktu foto tidak tersedia'
-                : DateFormat(
-                    'EEEE, d MMMM y • HH:mm',
-                    'id_ID',
-                  ).format(timestamp!),
-            style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(fontSize: 13),
+  Widget build(BuildContext context) {
+    final hasTimestamp = timestamp != null;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: BoxDecoration(
+        color: AppColors.skyBlueLight,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 39,
+            height: 39,
+            decoration: BoxDecoration(
+              color: AppColors.skyBlue,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.schedule_rounded,
+              color: Colors.white,
+              size: 21,
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        const Icon(Icons.zoom_in_rounded, color: AppColors.skyBlue, size: 20),
-      ],
-    ),
-  );
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'WAKTU DOKUMENTASI',
+                  style: TextStyle(
+                    color: AppColors.skyBlueDark,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .65,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  hasTimestamp
+                      ? DateFormat('EEEE, d MMMM y', 'id_ID').format(timestamp!)
+                      : 'Waktu foto belum tersedia',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (hasTimestamp) ...[
+            Container(width: 1, height: 35, color: AppColors.border),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const Text(
+                  'PUKUL',
+                  style: TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .6,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  DateFormat('HH:mm').format(timestamp!),
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                    letterSpacing: -.4,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class _OvertimePhoto {
@@ -882,15 +948,68 @@ class _PhotoGalleryPageState extends State<_PhotoGalleryPage> {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        photo.timestamp == null
-                            ? 'Waktu foto tidak tersedia'
-                            : DateFormat(
-                                'EEEE, d MMMM y • HH:mm',
-                                'id_ID',
-                              ).format(photo.timestamp!),
-                        style: const TextStyle(color: Color(0xFFD8E0EA)),
+                      const SizedBox(height: 10),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'WAKTU DOKUMENTASI',
+                                  style: TextStyle(
+                                    color: Color(0xFF9FB3C8),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: .65,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  photo.timestamp == null
+                                      ? 'Waktu foto tidak tersedia'
+                                      : DateFormat(
+                                          'EEEE, d MMMM y',
+                                          'id_ID',
+                                        ).format(photo.timestamp!),
+                                  style: const TextStyle(
+                                    color: Color(0xFFD8E0EA),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (photo.timestamp != null)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                const Text(
+                                  'PUKUL',
+                                  style: TextStyle(
+                                    color: Color(0xFF9FB3C8),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: .65,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  DateFormat('HH:mm').format(photo.timestamp!),
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 25,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1,
+                                    letterSpacing: -.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       const Text(
