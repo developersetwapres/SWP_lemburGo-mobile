@@ -82,7 +82,7 @@ class _CalendarPageState extends State<CalendarPage> {
       return;
     }
     if (result.record != null) {
-      final deleteMessage = await showModalBottomSheet<String>(
+      final detailResult = await showModalBottomSheet<OvertimeDetailResult>(
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
@@ -96,11 +96,11 @@ class _CalendarPageState extends State<CalendarPage> {
           onSessionExpired: widget.onSessionExpired,
         ),
       );
-      if (!mounted || deleteMessage == null) return;
+      if (!mounted || detailResult?.wasDeleted != true) return;
       await _loadCalendar();
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(deleteMessage)));
+          .showSnackBar(SnackBar(content: Text(detailResult!.deleteMessage!)));
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(

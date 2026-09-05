@@ -13,12 +13,14 @@ class OvertimeDetailPage extends StatefulWidget {
     required this.record,
     required this.repository,
     required this.onSessionExpired,
+    this.canEdit = false,
     super.key,
   });
 
   final DraftOvertime record;
   final OvertimeRepository repository;
   final Future<void> Function() onSessionExpired;
+  final bool canEdit;
 
   @override
   State<OvertimeDetailPage> createState() => _OvertimeDetailPageState();
@@ -26,6 +28,9 @@ class OvertimeDetailPage extends StatefulWidget {
 
 class _OvertimeDetailPageState extends State<OvertimeDetailPage> {
   bool _isDeleting = false;
+
+  void _requestEdit() =>
+      Navigator.of(context).pop(const OvertimeDetailResult.edit());
 
   Future<void> _deleteRecord() async {
     if (_isDeleting) return;
@@ -48,7 +53,7 @@ class _OvertimeDetailPageState extends State<OvertimeDetailPage> {
           .showSnackBar(SnackBar(content: Text(result.message!)));
       return;
     }
-    Navigator.of(context).pop(result.message);
+    Navigator.of(context).pop(OvertimeDetailResult.deleted(result.message!));
   }
 
   @override
@@ -62,6 +67,12 @@ class _OvertimeDetailPageState extends State<OvertimeDetailPage> {
       title: const Text('Detail Lembur'),
       titleTextStyle: Theme.of(context).textTheme.titleLarge,
       actions: [
+        if (widget.canEdit)
+          IconButton(
+            tooltip: 'Edit laporan',
+            onPressed: _isDeleting ? null : _requestEdit,
+            icon: const Icon(Icons.edit_outlined),
+          ),
         Padding(
           padding: const EdgeInsets.only(right: 8),
           child: _DeleteIconButton(
@@ -146,7 +157,7 @@ class _OvertimeDetailBottomSheetState extends State<OvertimeDetailBottomSheet> {
           .showSnackBar(SnackBar(content: Text(result.message!)));
       return;
     }
-    Navigator.of(context).pop(result.message);
+    Navigator.of(context).pop(OvertimeDetailResult.deleted(result.message!));
   }
 
   @override
@@ -350,6 +361,21 @@ class _DeleteRecordResult {
   final bool wasDeleted;
   final bool isUnauthenticated;
   final String? message;
+}
+
+/// Result returned to the list or calendar after the user leaves a detail.
+class OvertimeDetailResult {
+  const OvertimeDetailResult._({this.deleteMessage, this.requestsEdit = false});
+
+  const OvertimeDetailResult.deleted(String message)
+    : this._(deleteMessage: message);
+
+  const OvertimeDetailResult.edit() : this._(requestsEdit: true);
+
+  final String? deleteMessage;
+  final bool requestsEdit;
+
+  bool get wasDeleted => deleteMessage != null;
 }
 
 class _StatusHeader extends StatelessWidget {

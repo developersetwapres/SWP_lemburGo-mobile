@@ -105,24 +105,29 @@ class _HistoryPageState extends State<HistoryPage> {
     }
 
     if (!mounted) return;
-    if (detail.isFinalized) {
-      final deleteMessage = await Navigator.of(context).push<String>(
-        MaterialPageRoute(
-          builder: (_) => OvertimeDetailPage(
-            record: detail,
-            repository: widget.repository,
-            onSessionExpired: widget.onSessionExpired,
-          ),
+    final detailResult = await Navigator.of(context).push<OvertimeDetailResult>(
+      MaterialPageRoute(
+        builder: (_) => OvertimeDetailPage(
+          record: detail,
+          repository: widget.repository,
+          onSessionExpired: widget.onSessionExpired,
+          canEdit: !detail.isFinalized,
         ),
-      );
-      if (!mounted || deleteMessage == null) return;
+      ),
+    );
+    if (!mounted || detailResult == null) return;
+
+    if (detailResult.requestsEdit) {
+      final saved = await widget.onEdit(detail);
+      if (saved && mounted) await _refresh();
+      return;
+    }
+
+    if (detailResult.wasDeleted) {
       await _refresh();
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(deleteMessage)));
-    } else {
-      final saved = await widget.onEdit(detail);
-      if (saved && mounted) await _refresh();
+          .showSnackBar(SnackBar(content: Text(detailResult.deleteMessage!)));
     }
   }
 
