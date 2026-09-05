@@ -769,7 +769,6 @@ class _PhotoGalleryPageState extends State<_PhotoGalleryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final photo = widget.photos[_currentIndex];
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -827,108 +826,6 @@ class _PhotoGalleryPageState extends State<_PhotoGalleryPage> {
                     ),
                   ),
                 ],
-              ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: DecoratedBox(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Color(0xDD000000)],
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 42, 24, 22),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        photo.title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'WAKTU DOKUMENTASI',
-                                  style: TextStyle(
-                                    color: Color(0xFF9FB3C8),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: .65,
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  photo.timestamp == null
-                                      ? 'Waktu foto tidak tersedia'
-                                      : DateFormat(
-                                          'EEEE, d MMMM y',
-                                          'id_ID',
-                                        ).format(photo.timestamp!),
-                                  style: const TextStyle(
-                                    color: Color(0xFFD8E0EA),
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (photo.timestamp != null)
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                const Text(
-                                  'PUKUL',
-                                  style: TextStyle(
-                                    color: Color(0xFF9FB3C8),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: .65,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  DateFormat('HH:mm').format(photo.timestamp!),
-                                  textAlign: TextAlign.right,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 25,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1,
-                                    letterSpacing: -.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Geser untuk foto lain • Cubit untuk memperbesar',
-                        style: TextStyle(
-                          color: Color(0xFFABB8C8),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ),
             ),
           ],

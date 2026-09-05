@@ -262,12 +262,8 @@ class _PhotoPreview extends StatelessWidget {
     Navigator.of(context).push<void>(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => _FormPhotoFullScreenPreview(
-          title: label,
-          timestamp: timestamp,
-          file: file,
-          remoteUrl: remoteUrl,
-        ),
+        builder: (_) =>
+            _FormPhotoFullScreenPreview(file: file, remoteUrl: remoteUrl),
       ),
     );
   }
@@ -291,14 +287,10 @@ class _PhotoPreview extends StatelessWidget {
 
 class _FormPhotoFullScreenPreview extends StatelessWidget {
   const _FormPhotoFullScreenPreview({
-    required this.title,
-    required this.timestamp,
     required this.file,
     required this.remoteUrl,
   });
 
-  final String title;
-  final DateTime? timestamp;
   final File? file;
   final String? remoteUrl;
 
@@ -321,44 +313,6 @@ class _FormPhotoFullScreenPreview extends StatelessWidget {
                 tooltip: 'Tutup foto',
                 onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.close_rounded, color: Colors.white),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: DecoratedBox(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Color(0xDD000000)],
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 42, 24, 22),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    TimestampInfoPanel(timestamp: timestamp),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Cubit untuk memperbesar foto',
-                      style: TextStyle(color: Color(0xFFABB8C8), fontSize: 12),
-                    ),
-                  ],
-                ),
               ),
             ),
           ),
