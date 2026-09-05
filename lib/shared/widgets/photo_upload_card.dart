@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import 'remote_image.dart';
+import 'timestamp_info_panel.dart';
 
 /// One photo input used for both create and draft editing. A remote URL is
 /// display-only; a [photoFile] is a newly selected local file that can upload.
@@ -11,7 +12,7 @@ class PhotoUploadCard extends StatelessWidget {
   const PhotoUploadCard({
     required this.label,
     required this.photoFile,
-    required this.timestampLabel,
+    required this.timestamp,
     required this.modeLabel,
     required this.isProcessing,
     required this.onTap,
@@ -24,7 +25,7 @@ class PhotoUploadCard extends StatelessWidget {
   final String label;
   final File? photoFile;
   final String? existingImageUrl;
-  final String? timestampLabel;
+  final DateTime? timestamp;
   final String? modeLabel;
   final bool isProcessing;
   final VoidCallback onTap;
@@ -41,7 +42,7 @@ class PhotoUploadCard extends StatelessWidget {
       label: label,
       file: photoFile,
       remoteUrl: existingImageUrl,
-      timestampLabel: timestampLabel ?? 'Waktu foto tersimpan',
+      timestamp: timestamp,
       modeLabel: modeLabel ?? 'FOTO TERSIMPAN',
       onReplace: onTap,
       onRemove: onRemove,
@@ -140,7 +141,7 @@ class _PhotoPreview extends StatelessWidget {
     required this.label,
     required this.file,
     required this.remoteUrl,
-    required this.timestampLabel,
+    required this.timestamp,
     required this.modeLabel,
     required this.onReplace,
     this.onRemove,
@@ -150,7 +151,7 @@ class _PhotoPreview extends StatelessWidget {
   final String label;
   final File? file;
   final String? remoteUrl;
-  final String timestampLabel;
+  final DateTime? timestamp;
   final String modeLabel;
   final VoidCallback onReplace;
   final VoidCallback? onRemove;
@@ -253,7 +254,7 @@ class _PhotoPreview extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 10),
-      _PhotoTimestampPanel(timestampLabel: timestampLabel),
+      TimestampInfoPanel(timestamp: timestamp),
     ],
   );
 
@@ -263,7 +264,7 @@ class _PhotoPreview extends StatelessWidget {
         fullscreenDialog: true,
         builder: (_) => _FormPhotoFullScreenPreview(
           title: label,
-          timestampLabel: timestampLabel,
+          timestamp: timestamp,
           file: file,
           remoteUrl: remoteUrl,
         ),
@@ -288,76 +289,16 @@ class _PhotoPreview extends StatelessWidget {
   }
 }
 
-class _PhotoTimestampPanel extends StatelessWidget {
-  const _PhotoTimestampPanel({required this.timestampLabel});
-
-  final String timestampLabel;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-    decoration: BoxDecoration(
-      color: AppColors.skyBlueLight,
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: AppColors.skyBlue,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Icon(
-            Icons.schedule_rounded,
-            color: Colors.white,
-            size: 20,
-          ),
-        ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'WAKTU FOTO',
-                style: TextStyle(
-                  color: AppColors.skyBlueDark,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: .65,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                timestampLabel,
-                style: const TextStyle(
-                  color: AppColors.navy,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const Icon(Icons.zoom_in_rounded, color: AppColors.skyBlue, size: 22),
-      ],
-    ),
-  );
-}
-
 class _FormPhotoFullScreenPreview extends StatelessWidget {
   const _FormPhotoFullScreenPreview({
     required this.title,
-    required this.timestampLabel,
+    required this.timestamp,
     required this.file,
     required this.remoteUrl,
   });
 
   final String title;
-  final String timestampLabel;
+  final DateTime? timestamp;
   final File? file;
   final String? remoteUrl;
 
@@ -410,24 +351,7 @@ class _FormPhotoFullScreenPreview extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 5),
-                    const Text(
-                      'WAKTU FOTO',
-                      style: TextStyle(
-                        color: Color(0xFF9FB3C8),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: .65,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      timestampLabel,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    TimestampInfoPanel(timestamp: timestamp),
                     const SizedBox(height: 8),
                     const Text(
                       'Cubit untuk memperbesar foto',

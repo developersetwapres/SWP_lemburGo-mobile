@@ -5,6 +5,7 @@ import '../../../core/api/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/remote_image.dart';
+import '../../../shared/widgets/timestamp_info_panel.dart';
 import '../../overtime/data/models/draft_overtime.dart';
 import '../../overtime/data/overtime_repository.dart';
 
@@ -713,108 +714,14 @@ class _PhotoAlbumTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                _PhotoTimestamp(timestamp: photo.timestamp),
+                TimestampInfoPanel(
+                  timestamp: photo.timestamp,
+                  margin: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+                ),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _PhotoTimestamp extends StatelessWidget {
-  const _PhotoTimestamp({required this.timestamp});
-
-  final DateTime? timestamp;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasTimestamp = timestamp != null;
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.all(12),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-      decoration: BoxDecoration(
-        color: AppColors.skyBlueLight,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 39,
-            height: 39,
-            decoration: BoxDecoration(
-              color: AppColors.skyBlue,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.schedule_rounded,
-              color: Colors.white,
-              size: 21,
-            ),
-          ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'WAKTU DOKUMENTASI',
-                  style: TextStyle(
-                    color: AppColors.skyBlueDark,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: .65,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  hasTimestamp
-                      ? DateFormat('EEEE, d MMMM y', 'id_ID').format(timestamp!)
-                      : 'Waktu foto belum tersedia',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (hasTimestamp) ...[
-            Container(width: 1, height: 35, color: AppColors.border),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Text(
-                  'PUKUL',
-                  style: TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: .6,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  DateFormat('HH:mm').format(timestamp!),
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    color: AppColors.navy,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                    letterSpacing: -.4,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
       ),
     );
   }

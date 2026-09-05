@@ -9,9 +9,8 @@ import '../storage/token_storage.dart';
 import 'api_exception.dart';
 
 class ApiClient {
-  ApiClient._(this._tokenStorage, this.dio);
+  ApiClient._(this.dio);
 
-  final TokenStorage _tokenStorage;
   final Dio dio;
 
   static Future<ApiClient> create(TokenStorage tokenStorage) async {
@@ -39,7 +38,7 @@ class ApiClient {
 
     dio.httpClientAdapter = httpClientAdapter;
 
-    final apiClient = ApiClient._(tokenStorage, dio);
+    final apiClient = ApiClient._(dio);
 
     dio.interceptors.add(
       InterceptorsWrapper(

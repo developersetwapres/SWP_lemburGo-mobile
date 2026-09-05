@@ -27,13 +27,31 @@ class PhotoProcessingService {
   Future<StampedPhoto> createAutomaticStamp(XFile source) async {
     final timestamp = DateTime.now();
     final address = await _locationService.currentAddress();
-    return _stamp(
+    return createAutomaticStampAt(
       source: source,
       timestamp: timestamp,
       address: address,
-      mode: PhotoStampMode.automatic,
     );
   }
+
+  /// Used by the in-app camera. Location is resolved before opening the live
+  /// preview and [timestamp] is frozen at shutter time, so the values burned
+  /// into the JPEG are the same values the user saw in the camera overlay.
+  Future<StampedPhoto> createAutomaticStampAt({
+    required XFile source,
+    required DateTime timestamp,
+    required DeviceAddress address,
+  }) => _stamp(
+    source: source,
+    timestamp: timestamp,
+    address: address,
+    mode: PhotoStampMode.automatic,
+  );
+
+  /// Resolves the data required by the automatic camera stamp before the
+  /// camera is shown, avoiding a post-capture location lookup.
+  Future<DeviceAddress> prepareAutomaticCameraStamp() =>
+      _locationService.currentAddress();
 
   Future<StampedPhoto> createManualStamp({
     required XFile source,
@@ -134,50 +152,86 @@ Future<String> _burnTimestamp(_StampPayload payload) async {
   }
   decoded = image.bakeOrientation(decoded);
   if (decoded.width > 1920) decoded = image.copyResize(decoded, width: 1920);
-  final monthNames = [
-    'Januari',
-    'Februari',
-    'Maret',
-    'April',
-    'Mei',
-    'Juni',
-    'Juli',
-    'Agustus',
-    'September',
-    'Oktober',
-    'November',
-    'Desember',
-  ];
-  final dateLine =
-      '${payload.timestamp.day.toString().padLeft(2, '0')} ${monthNames[payload.timestamp.month - 1]} ${payload.timestamp.year} | ${payload.timestamp.hour.toString().padLeft(2, '0')}:${payload.timestamp.minute.toString().padLeft(2, '0')} WIB';
-  final lines = [dateLine, ...payload.addressLines.take(3)];
-  const padding = 30;
-  const lineHeight = 32;
-  final fontSize = image.arial24;
-  final boxHeight = 28 + (lines.length * lineHeight);
-  final left = padding;
-  final bottom = padding;
+  final content = PhotoTimestampContent(
+    timestamp: payload.timestamp,
+    address: DeviceAddress(
+      road: payload.addressLines.isNotEmpty ? payload.addressLines.first : '',
+      districtCity: payload.addressLines.length > 1
+          ? payload.addressLines[1]
+          : '',
+      province: payload.addressLines.length > 2 ? payload.addressLines[2] : '',
+    ),
+  );
+  final addressLines = content.addressLines;
+  const outerPadding = 32;
+  const panelPadding = 26;
+  const dateHeight = 34;
+  const timeHeight = 34;
+  const addressLineHeight = 30;
+  final boxHeight =
+      32 +
+      dateHeight +
+      timeHeight +
+      14 +
+      (addressLines.length * addressLineHeight) +
+      18;
+  final left = outerPadding;
+  final bottom = outerPadding;
+  final right = decoded.width - outerPadding;
   final top = decoded.height - boxHeight - bottom;
+
+  // Documentary-camera styling: a translucent, high-contrast navy card with
+  // one consistent text scale. The same information is rendered in the live
+  // CameraPreview before shutter is pressed.
   image.fillRect(
     decoded,
     x1: left,
     y1: top,
-    x2: decoded.width - padding,
+    x2: right,
     y2: decoded.height - bottom,
-    color: image.ColorRgba8(9, 24, 42, 205),
-    radius: 18,
+    color: image.ColorRgba8(8, 21, 37, 194),
+    radius: 20,
   );
-  var lineY = top + 14;
-  for (var index = 0; index < lines.length; index++) {
+  image.fillRect(
+    decoded,
+    x1: left,
+    y1: top,
+    x2: right,
+    y2: top + 8,
+    color: image.ColorRgba8(22, 136, 232, 255),
+    radius: 20,
+  );
+  image.drawString(
+    decoded,
+    _trimToWidth(
+      content.dateLabel,
+      image.arial24,
+      right - left - panelPadding * 2,
+    ),
+    font: image.arial24,
+    x: left + panelPadding,
+    y: top + 24,
+    color: image.ColorRgba8(255, 255, 255, 255),
+  );
+  image.drawString(
+    decoded,
+    content.timeLabel,
+    font: image.arial24,
+    x: left + panelPadding,
+    y: top + 58,
+    color: image.ColorRgba8(255, 255, 255, 255),
+  );
+  var addressY = top + 98;
+  for (final addressLine in addressLines) {
     image.drawString(
       decoded,
-      lines[index],
-      font: fontSize,
-      x: left + 22,
-      y: lineY,
-      color: image.ColorRgba8(255, 255, 255, 255),
+      _trimToWidth(addressLine, image.arial24, right - left - panelPadding * 2),
+      font: image.arial24,
+      x: left + panelPadding,
+      y: addressY,
+      color: image.ColorRgba8(222, 235, 247, 255),
     );
-    lineY += lineHeight;
+    addressY += addressLineHeight;
   }
   var quality = 92;
   var bytes = image.encodeJpg(decoded, quality: quality);
@@ -187,4 +241,19 @@ Future<String> _burnTimestamp(_StampPayload payload) async {
   }
   await File(payload.outputPath).writeAsBytes(bytes, flush: true);
   return payload.outputPath;
+}
+
+String _trimToWidth(String value, image.BitmapFont font, int maxWidth) {
+  var width = 0;
+  final buffer = StringBuffer();
+  for (final codeUnit in value.codeUnits) {
+    final character = String.fromCharCode(codeUnit);
+    final nextWidth = width + font.characterXAdvance(character);
+    if (nextWidth > maxWidth) {
+      return '${buffer.toString().trimRight()}...';
+    }
+    buffer.write(character);
+    width = nextWidth;
+  }
+  return value;
 }

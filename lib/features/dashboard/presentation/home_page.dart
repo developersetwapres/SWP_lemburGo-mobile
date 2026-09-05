@@ -615,7 +615,10 @@ class _DraftCard extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            Container(height: 1, color: AppColors.border.withOpacity(.55)),
+            Container(
+              height: 1,
+              color: AppColors.border.withValues(alpha: .55),
+            ),
 
             const SizedBox(height: 12),
 
@@ -782,7 +785,7 @@ class _ProgressStep extends StatelessWidget {
           decoration: BoxDecoration(
             color: complete
                 ? AppColors.success
-                : AppColors.border.withOpacity(.45),
+                : AppColors.border.withValues(alpha: .45),
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
@@ -813,8 +816,8 @@ class _ProgressStep extends StatelessWidget {
               margin: const EdgeInsets.only(right: 6),
               decoration: BoxDecoration(
                 color: complete
-                    ? AppColors.success.withOpacity(.25)
-                    : AppColors.border.withOpacity(.55),
+                    ? AppColors.success.withValues(alpha: .25)
+                    : AppColors.border.withValues(alpha: .55),
                 borderRadius: BorderRadius.circular(99),
               ),
             ),

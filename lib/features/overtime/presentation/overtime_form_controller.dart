@@ -105,6 +105,23 @@ class OvertimeFormController extends ChangeNotifier {
     }
   }
 
+  /// The timestamp camera returns a JPEG that already has its visible preview
+  /// stamp permanently embedded. It should not enter the normal post-picker
+  /// automatic processing path a second time.
+  void setAutomaticCameraPhoto({
+    required PhotoSlot slot,
+    required StampedPhoto photo,
+  }) {
+    if (slot == PhotoSlot.activity) {
+      activityPhoto = photo;
+    } else {
+      checkoutPhoto = photo;
+    }
+    _photoStates[slot] = PhotoInputState.ready;
+    _clearError(slot == PhotoSlot.activity ? 'foto_kegiatan' : 'foto_pulang');
+    notifyListeners();
+  }
+
   void removePhoto(PhotoSlot slot) {
     if (slot == PhotoSlot.activity) {
       activityPhoto = null;
@@ -194,8 +211,9 @@ class OvertimeFormController extends ChangeNotifier {
       return SubmitOutcome.success;
     } on ApiException catch (error) {
       generalError = error.message;
-      if (error.fieldErrors.isNotEmpty)
+      if (error.fieldErrors.isNotEmpty) {
         errors = _mapServerErrors(error.fieldErrors);
+      }
       notifyListeners();
       return error.isUnauthenticated
           ? SubmitOutcome.unauthenticated
@@ -212,10 +230,12 @@ class OvertimeFormController extends ChangeNotifier {
 
   Map<String, String> _localErrors() {
     final result = <String, String>{};
-    if (activityName.trim().isEmpty)
+    if (activityName.trim().isEmpty) {
       result['nama_kegiatan'] = 'Nama kegiatan wajib diisi';
-    if (location.trim().isEmpty)
+    }
+    if (location.trim().isEmpty) {
       result['lokasi_kegiatan'] = 'Lokasi kegiatan wajib diisi';
+    }
     return result;
   }
 
@@ -227,8 +247,9 @@ class OvertimeFormController extends ChangeNotifier {
     final mapped = <String, String>{};
     fieldErrors.forEach((field, messages) {
       final target = aliases[field] ?? field;
-      if (messages.isNotEmpty && !mapped.containsKey(target))
+      if (messages.isNotEmpty && !mapped.containsKey(target)) {
         mapped[target] = messages.first;
+      }
     });
     return mapped;
   }

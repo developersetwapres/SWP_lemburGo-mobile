@@ -13,6 +13,7 @@ import '../data/models/photo_stamp.dart';
 import '../data/overtime_repository.dart';
 import '../data/services/photo_processing_service.dart';
 import 'overtime_form_controller.dart';
+import 'timestamp_camera_page.dart';
 
 class OvertimeFormPage extends StatefulWidget {
   const OvertimeFormPage({
@@ -66,14 +67,26 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
     );
     if (!mounted || source == null) return;
 
+    if (source == ImageSource.camera) {
+      final captured = await Navigator.of(context).push<StampedPhoto>(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) =>
+              TimestampCameraPage(photoService: widget.photoService),
+        ),
+      );
+      if (!mounted || captured == null) return;
+      _controller.setAutomaticCameraPhoto(slot: slot, photo: captured);
+      return;
+    }
+
     final picked = await _controller.pickPhoto(slot: slot, source: source);
     if (!mounted || picked == null) return;
 
-    // Camera intentionally defaults to automatic: one tap after capture gives
-    // the most useful result, while its preview still permits a later change.
-    final mode = source == ImageSource.camera
-        ? PhotoStampMode.automatic
-        : await _chooseTimestampMode();
+    // Gallery photos retain the existing timestamp choices, including the
+    // manual form. The in-app camera above always returns an already-stamped
+    // automatic photo and therefore never enters this flow.
+    final mode = await _chooseTimestampMode();
     if (!mounted || mode == null) return;
     await _applyTimestamp(slot: slot, photo: picked, mode: mode);
   }
@@ -319,17 +332,7 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
           label: label,
           photoFile: photo?.file,
           existingImageUrl: photo == null ? existingUrl : null,
-          timestampLabel: photo != null
-              ? DateFormat(
-                  'dd MMM yyyy • HH:mm',
-                  'id_ID',
-                ).format(photo.timestamp)
-              : existingTimestamp == null
-              ? null
-              : DateFormat(
-                  'dd MMM yyyy • HH:mm',
-                  'id_ID',
-                ).format(existingTimestamp),
+          timestamp: photo?.timestamp ?? existingTimestamp,
           modeLabel: switch (photo?.mode) {
             PhotoStampMode.manual => 'MANUAL TIMESTAMP',
             PhotoStampMode.existingTimestamp => 'TIMESTAMP DARI FOTO',
@@ -459,7 +462,7 @@ class _PhotoSourceSheet extends StatelessWidget {
       _OptionTile(
         icon: Icons.camera_alt_rounded,
         title: 'Ambil dari Kamera',
-        subtitle: 'Gunakan kamera belakang perangkat',
+        subtitle: 'Timestamp tampil langsung sebelum foto diambil',
         onTap: () => Navigator.pop(context, ImageSource.camera),
       ),
       _OptionTile(
