@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/api/api_exception.dart';
+import '../../../core/offline/sync_models.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/remote_image.dart';
@@ -320,7 +323,7 @@ Future<_DeleteRecordResult> _confirmAndDelete(
   );
 
   try {
-    final message = await repository.delete(record.uuid);
+    final message = await repository.delete(record.uuid, record: record);
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
     return _DeleteRecordResult.deleted(message);
   } on ApiException catch (error) {
@@ -385,6 +388,7 @@ class _StatusHeader extends StatelessWidget {
 
   bool get _isLocked => record.isFinalized;
   bool get _isActuallyLocked => record.normalizedStatus == 'locked';
+  bool get _hasLocalChange => record.localSyncState.name != 'synced';
 
   @override
   Widget build(BuildContext context) => AppCard(
@@ -426,7 +430,9 @@ class _StatusHeader extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                _isLocked
+                _hasLocalChange
+                    ? '${record.localSyncState.label}. ${record.syncError ?? 'Data aman di perangkat.'}'
+                    : _isLocked
                     ? 'Data ini hanya dapat dilihat.'
                     : 'Data lengkap dapat diperbarui dari lembur draft.',
                 style: Theme.of(context).textTheme.bodyMedium,
@@ -528,6 +534,7 @@ class _DocumentationGallery extends StatelessWidget {
         title: 'Foto Kegiatan',
         subtitle: 'Dokumentasi aktivitas lembur',
         url: record.activityPhotoUrl,
+        localPath: record.activityPhotoLocalPath,
         timestamp: record.activityPhotoAt,
         emptyMessage: 'Foto kegiatan belum tersedia.',
         icon: Icons.photo_camera_back_outlined,
@@ -536,12 +543,13 @@ class _DocumentationGallery extends StatelessWidget {
         title: 'Foto Presensi Pulang',
         subtitle: 'Bukti presensi saat pulang',
         url: record.checkoutPhotoUrl,
+        localPath: record.checkoutPhotoLocalPath,
         timestamp: record.checkoutPhotoAt,
         emptyMessage: 'Foto presensi pulang belum tersedia.',
         icon: Icons.verified_user_outlined,
       ),
     ];
-    final availablePhotos = photos.where((photo) => photo.url != null).toList();
+    final availablePhotos = photos.where((photo) => photo.isAvailable).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -584,7 +592,7 @@ class _DocumentationGallery extends StatelessWidget {
         for (var index = 0; index < photos.length; index++) ...[
           _PhotoAlbumTile(
             photo: photos[index],
-            onOpen: photos[index].url == null
+            onOpen: !photos[index].isAvailable
                 ? null
                 : () => _openGallery(
                     context,
@@ -624,7 +632,7 @@ class _PhotoAlbumTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (photo.url == null) return _EmptyPhoto(message: photo.emptyMessage);
+    if (!photo.isAvailable) return _EmptyPhoto(message: photo.emptyMessage);
 
     return Semantics(
       button: true,
@@ -702,15 +710,21 @@ class _PhotoAlbumTile extends StatelessWidget {
                     aspectRatio: 4 / 3,
                     child: ColoredBox(
                       color: AppColors.navy,
-                      child: RemoteImage(
-                        url: photo.url!,
-                        // Contain keeps every part of the submitted evidence visible.
-                        fit: BoxFit.contain,
-                        loading: const Center(
-                          child: CircularProgressIndicator(),
-                        ),
-                        error: const _ImageError(),
-                      ),
+                      child: photo.localFile != null
+                          ? Image.file(
+                              photo.localFile!,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) => const _ImageError(),
+                            )
+                          : RemoteImage(
+                              url: photo.url!,
+                              // Contain keeps every part of the submitted evidence visible.
+                              fit: BoxFit.contain,
+                              loading: const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                              error: const _ImageError(),
+                            ),
                     ),
                   ),
                 ),
@@ -732,6 +746,7 @@ class _OvertimePhoto {
     required this.title,
     required this.subtitle,
     required this.url,
+    required this.localPath,
     required this.timestamp,
     required this.emptyMessage,
     required this.icon,
@@ -740,9 +755,19 @@ class _OvertimePhoto {
   final String title;
   final String subtitle;
   final String? url;
+  final String? localPath;
   final DateTime? timestamp;
   final String emptyMessage;
   final IconData icon;
+
+  File? get localFile {
+    final value = localPath;
+    if (value == null) return null;
+    final file = File(value);
+    return file.existsSync() ? file : null;
+  }
+
+  bool get isAvailable => localFile != null || url != null;
 }
 
 class _PhotoGalleryPage extends StatefulWidget {
@@ -784,14 +809,22 @@ class _PhotoGalleryPageState extends State<_PhotoGalleryPage> {
                   child: InteractiveViewer(
                     minScale: 1,
                     maxScale: 4,
-                    child: RemoteImage(
-                      url: pagePhoto.url!,
-                      fit: BoxFit.contain,
-                      loading: const Center(
-                        child: CircularProgressIndicator(color: Colors.white),
-                      ),
-                      error: const _ImageError(),
-                    ),
+                    child: pagePhoto.localFile != null
+                        ? Image.file(
+                            pagePhoto.localFile!,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, _, _) => const _ImageError(),
+                          )
+                        : RemoteImage(
+                            url: pagePhoto.url!,
+                            fit: BoxFit.contain,
+                            loading: const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                              ),
+                            ),
+                            error: const _ImageError(),
+                          ),
                   ),
                 );
               },

@@ -1,4 +1,5 @@
 import '../../../../core/config/api_config.dart';
+import '../../../../core/offline/sync_models.dart';
 
 class DraftOvertime {
   const DraftOvertime({
@@ -13,6 +14,15 @@ class DraftOvertime {
     this.checkoutPhotoUrl,
     this.checkoutPhotoAt,
     this.checkoutTime,
+    this.localId,
+    this.clientRequestId,
+    this.activityPhotoLocalPath,
+    this.checkoutPhotoLocalPath,
+    this.activityPhotoPendingUpload = false,
+    this.checkoutPhotoPendingUpload = false,
+    this.localSyncState = LocalSyncState.synced,
+    this.syncError,
+    this.localRevision = 0,
   });
 
   final String id;
@@ -27,8 +37,24 @@ class DraftOvertime {
   final DateTime? checkoutPhotoAt;
   final DateTime? checkoutTime;
 
-  bool get hasActivityPhoto => activityPhotoUrl != null;
-  bool get hasCheckoutPhoto => checkoutPhotoUrl != null;
+  /// A permanent device identifier. It exists before Laravel has assigned a
+  /// UUID and never changes when the server record is linked.
+  final String? localId;
+  final String? clientRequestId;
+  final String? activityPhotoLocalPath;
+  final String? checkoutPhotoLocalPath;
+  final bool activityPhotoPendingUpload;
+  final bool checkoutPhotoPendingUpload;
+  final LocalSyncState localSyncState;
+  final String? syncError;
+  final int localRevision;
+
+  bool get hasActivityPhoto =>
+      activityPhotoUrl != null || activityPhotoLocalPath != null;
+  bool get hasCheckoutPhoto =>
+      checkoutPhotoUrl != null || checkoutPhotoLocalPath != null;
+
+  bool get isLocalOnly => uuid.trim().isEmpty;
 
   String get normalizedStatus => normalizeStatus(status);
 

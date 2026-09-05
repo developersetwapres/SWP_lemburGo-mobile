@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -36,6 +38,7 @@ class _HistoryPageState extends State<HistoryPage> {
   void initState() {
     super.initState();
     _controller = HistoryController(widget.repository);
+    _controller.startListening();
     if (widget.isActive) _loadInitial();
   }
 
@@ -56,12 +59,18 @@ class _HistoryPageState extends State<HistoryPage> {
   Future<void> _loadInitial() async {
     _hasLoaded = true;
     final outcome = await _controller.load(showSkeleton: true);
+    unawaited(
+      widget.repository.syncNow(historyMonth: _controller.selectedMonth),
+    );
     if (mounted && outcome == HistoryLoadOutcome.unauthenticated) {
       await widget.onSessionExpired();
     }
   }
 
   Future<void> _refresh() async {
+    unawaited(
+      widget.repository.syncNow(historyMonth: _controller.selectedMonth),
+    );
     final outcome = await _controller.refresh();
     if (mounted && outcome == HistoryLoadOutcome.unauthenticated) {
       await widget.onSessionExpired();
@@ -77,6 +86,7 @@ class _HistoryPageState extends State<HistoryPage> {
     );
     if (!mounted || month == null || month == _controller.selectedMonth) return;
     final outcome = await _controller.load(month: month);
+    unawaited(widget.repository.syncNow(historyMonth: month));
     if (mounted && outcome == HistoryLoadOutcome.unauthenticated) {
       await widget.onSessionExpired();
     }
@@ -86,7 +96,7 @@ class _HistoryPageState extends State<HistoryPage> {
     final messenger = ScaffoldMessenger.of(context);
     DraftOvertime detail;
     try {
-      detail = await widget.repository.fetchDetail(record.uuid);
+      detail = await widget.repository.fetchRecordDetail(record);
     } on ApiException catch (error) {
       if (error.isUnauthenticated) {
         if (!mounted) return;
@@ -153,6 +163,8 @@ class _HistoryPageState extends State<HistoryPage> {
                     totalOvertime: _controller.history?.totalOvertime ?? 0,
                     workdayOvertime: _controller.history?.workdayOvertime ?? 0,
                     holidayOvertime: _controller.history?.holidayOvertime ?? 0,
+                    isServerSummaryStale:
+                        _controller.history?.isServerSummaryStale ?? true,
                     isLoading: _controller.isLoading,
                   ),
                   const SizedBox(height: 18),
@@ -200,6 +212,7 @@ class _IncomeSummary extends StatelessWidget {
     required this.totalOvertime,
     required this.workdayOvertime,
     required this.holidayOvertime,
+    required this.isServerSummaryStale,
     required this.isLoading,
   });
   final num totalUpah;
@@ -207,6 +220,7 @@ class _IncomeSummary extends StatelessWidget {
   final int totalOvertime;
   final int workdayOvertime;
   final int holidayOvertime;
+  final bool isServerSummaryStale;
   final bool isLoading;
 
   @override
@@ -280,6 +294,15 @@ class _IncomeSummary extends StatelessWidget {
                   borderRadius: BorderRadius.circular(9),
                 ),
               )
+            else if (isServerSummaryStale)
+              const Text(
+                'Belum tersedia',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                ),
+              )
             else
               Text(
                 NumberFormat.currency(
@@ -296,7 +319,9 @@ class _IncomeSummary extends StatelessWidget {
               ),
             const SizedBox(height: 8),
             Text(
-              '${_monthName(month)} ${DateTime.now().year} • $totalOvertime kegiatan lembur',
+              isServerSummaryStale
+                  ? '${_monthName(month)} ${DateTime.now().year} • upah menunggu data server'
+                  : '${_monthName(month)} ${DateTime.now().year} • $totalOvertime kegiatan lembur',
               style: const TextStyle(color: Color(0xFFE3F3FF), fontSize: 13),
             ),
             const SizedBox(height: 16),
@@ -308,6 +333,11 @@ class _IncomeSummary extends StatelessWidget {
                   color: Colors.white.withValues(alpha: .14),
                   borderRadius: BorderRadius.circular(14),
                 ),
+              )
+            else if (isServerSummaryStale)
+              const Text(
+                'Jumlah upah dan klasifikasi hari akan diperbarui saat tersambung ke server.',
+                style: TextStyle(color: Color(0xFFE3F3FF), fontSize: 12),
               )
             else
               _OvertimeBreakdown(

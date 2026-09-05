@@ -53,13 +53,20 @@ class OvertimeFormController extends ChangeNotifier {
     PhotoSlot.checkout => draft?.checkoutPhotoUrl,
   };
 
+  String? existingPhotoLocalPathFor(PhotoSlot slot) => switch (slot) {
+    PhotoSlot.activity => draft?.activityPhotoLocalPath,
+    PhotoSlot.checkout => draft?.checkoutPhotoLocalPath,
+  };
+
   DateTime? existingPhotoTimestampFor(PhotoSlot slot) => switch (slot) {
     PhotoSlot.activity => draft?.activityPhotoAt,
     PhotoSlot.checkout => draft?.checkoutPhotoAt,
   };
 
   bool hasPhotoFor(PhotoSlot slot) =>
-      photoFor(slot) != null || existingPhotoUrlFor(slot) != null;
+      photoFor(slot) != null ||
+      existingPhotoUrlFor(slot) != null ||
+      existingPhotoLocalPathFor(slot) != null;
 
   PhotoInputState stateFor(PhotoSlot slot) =>
       _photoStates[slot] ?? PhotoInputState.empty;

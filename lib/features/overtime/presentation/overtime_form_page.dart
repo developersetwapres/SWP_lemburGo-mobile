@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -323,6 +325,7 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
   Widget _photoSection(PhotoSlot slot, String label) {
     final photo = _controller.photoFor(slot);
     final existingUrl = _controller.existingPhotoUrlFor(slot);
+    final localPath = _controller.existingPhotoLocalPathFor(slot);
     final existingTimestamp = _controller.existingPhotoTimestampFor(slot);
     final field = slot == PhotoSlot.activity ? 'foto_kegiatan' : 'foto_pulang';
     return Column(
@@ -331,12 +334,16 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
         PhotoUploadCard(
           label: label,
           photoFile: photo?.file,
+          existingImageFile: photo == null && localPath != null
+              ? File(localPath)
+              : null,
           existingImageUrl: photo == null ? existingUrl : null,
           timestamp: photo?.timestamp ?? existingTimestamp,
           modeLabel: switch (photo?.mode) {
             PhotoStampMode.manual => 'MANUAL TIMESTAMP',
             PhotoStampMode.existingTimestamp => 'TIMESTAMP DARI FOTO',
-            null when existingUrl != null => 'FOTO TERSIMPAN',
+            null when existingUrl != null || localPath != null =>
+              'FOTO TERSIMPAN',
             _ => 'AUTO TIMESTAMP',
           },
           isProcessing: _controller.isProcessing(slot),

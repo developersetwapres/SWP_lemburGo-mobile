@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -44,6 +46,8 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _draftController = DraftOvertimeController(widget.repository);
     _yearSummaryController = YearOvertimeSummaryController(widget.repository);
+    _draftController.startListening();
+    _yearSummaryController.startListening();
     _loadDrafts();
     _loadYearSummary();
   }
@@ -70,6 +74,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _refreshHome() async {
+    unawaited(widget.repository.syncNow());
     await _loadDrafts();
     if (mounted) await _loadYearSummary();
   }
@@ -82,7 +87,7 @@ class _HomePageState extends State<HomePage> {
   Future<void> _openDraftDetail(DraftOvertime draft) async {
     DraftOvertime detail;
     try {
-      detail = await widget.repository.fetchDetail(draft.uuid);
+      detail = await widget.repository.fetchRecordDetail(draft);
     } on ApiException catch (error) {
       if (mounted && error.isUnauthenticated) {
         await widget.onSessionExpired();
@@ -1072,11 +1077,13 @@ class _YearOvertimeSummaryCard extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Text(
-          NumberFormat.currency(
-            locale: 'id_ID',
-            symbol: 'Rp ',
-            decimalDigits: 0,
-          ).format(summary.totalPay),
+          summary.isServerSummaryStale
+              ? 'Belum tersedia'
+              : NumberFormat.currency(
+                  locale: 'id_ID',
+                  symbol: 'Rp ',
+                  decimalDigits: 0,
+                ).format(summary.totalPay),
           style: const TextStyle(
             color: Colors.white,
             fontSize: 30,
@@ -1089,7 +1096,13 @@ class _YearOvertimeSummaryCard extends StatelessWidget {
           'Tahun ${DateTime.now().year}',
           style: const TextStyle(color: Color(0xFFEAF6FF), fontSize: 13),
         ),
-        if (summary.totalOvertime == 0) ...[
+        if (summary.isServerSummaryStale) ...[
+          const SizedBox(height: 3),
+          const Text(
+            'Rekap otoritatif akan tersedia setelah sinkronisasi server.',
+            style: TextStyle(color: Color(0xFFEAF6FF), fontSize: 12),
+          ),
+        ] else if (summary.totalOvertime == 0) ...[
           const SizedBox(height: 3),
           const Text(
             'Belum ada lembur tahun ini',
@@ -1097,7 +1110,7 @@ class _YearOvertimeSummaryCard extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 18),
-        _YearStats(summary: summary),
+        if (!summary.isServerSummaryStale) _YearStats(summary: summary),
       ],
     ),
   );

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -39,6 +41,7 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   void initState() {
     super.initState();
+    _controller.startListening();
     final now = DateTime.now();
     _visibleMonth = DateTime(now.year, now.month);
     _selectedDate = now;
@@ -56,6 +59,7 @@ class _CalendarPageState extends State<CalendarPage> {
   Future<void> _loadCalendar({bool showSkeleton = false}) async {
     _hasLoaded = true;
     final outcome = await _controller.load(showSkeleton: showSkeleton);
+    unawaited(widget.repository.syncNow());
     if (mounted && outcome == CalendarLoadOutcome.unauthenticated) {
       await widget.onSessionExpired();
     }

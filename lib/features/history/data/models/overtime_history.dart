@@ -8,6 +8,8 @@ class OvertimeHistory {
     required this.totalOvertime,
     required this.workdayOvertime,
     required this.holidayOvertime,
+    this.isServerSummaryStale = false,
+    this.serverSummaryUpdatedAt,
   });
 
   final List<DraftOvertime> records;
@@ -16,6 +18,11 @@ class OvertimeHistory {
   final int totalOvertime;
   final int workdayOvertime;
   final int holidayOvertime;
+
+  /// Totals for pay remain server-authoritative. Offline screens show the
+  /// latest cached value and can identify when none is available yet.
+  final bool isServerSummaryStale;
+  final DateTime? serverSummaryUpdatedAt;
 
   factory OvertimeHistory.fromJson(Map<String, dynamic> json) {
     final rawRecords = json['data'];

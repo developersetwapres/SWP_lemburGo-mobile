@@ -1,89 +1,127 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../../core/offline/local_overtime_store.dart';
+import '../../../core/offline/local_photo_store.dart';
+import '../../../core/offline/offline_database.dart';
+import '../../../core/offline/sync_engine.dart';
+import '../../../core/offline/sync_status.dart';
 import '../../calendar/data/models/calendar_overtime.dart';
 import '../../history/data/models/overtime_history.dart';
 import 'models/draft_overtime.dart';
 import 'models/photo_stamp.dart';
 import 'models/year_overtime_summary.dart';
+import 'remote_overtime_api.dart';
 
-class OvertimeRepository {
-  OvertimeRepository(this._dio, this._apiClient);
-  final Dio _dio;
-  final ApiClient _apiClient;
-
-  Future<List<DraftOvertime>> fetchDrafts() async {
-    try {
-      final response = await _dio.get<Map<String, dynamic>>('/lemburs/draft');
-      final rawData = response.data?['data'];
-      if (rawData is! List) return const [];
-      return rawData
-          .whereType<Map>()
-          .map(
-            (item) => DraftOvertime.fromJson(Map<String, dynamic>.from(item)),
-          )
-          .toList();
-    } on DioException catch (error) {
-      throw _apiClient.exceptionFrom(error);
-    }
+/// Local-first facade used by every screen. Reads always come from SQLite and
+/// writes commit locally before the sync engine is asked to contact Laravel.
+class OvertimeRepository extends ChangeNotifier {
+  OvertimeRepository._(this._localStore, this._photoStore, this._remoteApi) {
+    _syncEngine = SyncEngine(
+      localStore: _localStore,
+      remoteApi: _remoteApi,
+      status: syncStatus,
+      onUnauthenticated: _handleUnauthenticated,
+    );
+    syncStatus.addListener(notifyListeners);
   }
+
+  static Future<OvertimeRepository> create(Dio dio, ApiClient apiClient) async {
+    final database = await OfflineDatabase.open();
+    return OvertimeRepository._(
+      LocalOvertimeStore(database),
+      LocalPhotoStore(),
+      RemoteOvertimeApi(dio, apiClient),
+    );
+  }
+
+  final LocalOvertimeStore _localStore;
+  final LocalPhotoStore _photoStore;
+  final OvertimeRemoteGateway _remoteApi;
+  final SyncStatus syncStatus = SyncStatus();
+  late final SyncEngine _syncEngine;
+
+  String? _ownerId;
+  Future<void> Function()? _sessionExpiredHandler;
+
+  void setSessionExpiredHandler(Future<void> Function() handler) {
+    _sessionExpiredHandler = handler;
+  }
+
+  Future<void> activateUser(String ownerId) async {
+    if (_ownerId == ownerId) return;
+    _ownerId = ownerId;
+    await _syncEngine.activate(ownerId);
+    notifyListeners();
+  }
+
+  Future<void> deactivateUser() async {
+    _ownerId = null;
+    await _syncEngine.deactivate();
+    notifyListeners();
+  }
+
+  Future<void> _handleUnauthenticated() async {
+    // Local rows remain owner-scoped and untouched. The app returns to login,
+    // then the same user can continue syncing after authenticating again.
+    await _sessionExpiredHandler?.call();
+  }
+
+  Future<List<DraftOvertime>> fetchDrafts() =>
+      _localStore.drafts(_requireOwner());
 
   Future<DraftOvertime> fetchDetail(String uuid) async {
-    try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        '/lemburs/detail/$uuid',
-      );
-      final rawData = response.data?['data'];
-      if (rawData is! Map) {
-        throw const FormatException('Format detail lembur tidak valid.');
-      }
-      return DraftOvertime.fromJson(Map<String, dynamic>.from(rawData));
-    } on DioException catch (error) {
-      throw _apiClient.exceptionFrom(error);
-    }
+    final ownerId = _requireOwner();
+    final local = await _localStore.byServerUuid(ownerId, uuid);
+    if (local != null) return local;
+    // A calendar snapshot can know a UUID before its full detail has ever been
+    // read. Fetching it is an online enhancement; normal UI reads are local.
+    final remote = await _remoteApi.fetchDetail(uuid);
+    await _localStore.upsertRemoteRecords(ownerId: ownerId, records: [remote]);
+    notifyListeners();
+    return (await _localStore.byServerUuid(ownerId, uuid)) ?? remote;
   }
 
-  Future<OvertimeHistory> fetchHistory({int? month}) async {
-    try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        '/lemburs',
-        queryParameters: month == null ? null : {'bulan': month},
-      );
-      return OvertimeHistory.fromJson(response.data ?? const {});
-    } on DioException catch (error) {
-      throw _apiClient.exceptionFrom(error);
+  Future<DraftOvertime?> fetchLocalDetail(String localId) =>
+      _localStore.byLocalId(_requireOwner(), localId);
+
+  /// A list item already carries a durable local ID, including records that
+  /// have not received a Laravel UUID yet. Detail navigation must use it
+  /// first; otherwise an offline-created draft would incorrectly request
+  /// `/lemburs/detail/` with an empty UUID.
+  Future<DraftOvertime> fetchRecordDetail(DraftOvertime record) async {
+    final localId = record.localId;
+    if (localId?.isNotEmpty == true) {
+      final local = await fetchLocalDetail(localId!);
+      if (local != null) return local;
     }
+    if (record.uuid.trim().isEmpty) {
+      throw StateError('Detail laporan lokal tidak ditemukan.');
+    }
+    return fetchDetail(record.uuid);
   }
 
-  Future<List<CalendarOvertime>> fetchCalendarEntries() async {
-    try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        '/lemburs/kalender',
-      );
-      final rawData = response.data?['data'];
-      if (rawData is! List) return const [];
-      return rawData
-          .whereType<Map>()
-          .map(
-            (item) =>
-                CalendarOvertime.fromJson(Map<String, dynamic>.from(item)),
-          )
-          .toList();
-    } on DioException catch (error) {
-      throw _apiClient.exceptionFrom(error);
-    }
-  }
+  Future<OvertimeHistory> fetchHistory({int? month}) =>
+      _localStore.history(_requireOwner(), month ?? DateTime.now().month);
 
-  Future<YearOvertimeSummary> fetchYearOvertimeSummary() async {
-    try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        '/lemburs/total-upah',
+  Future<List<CalendarOvertime>> fetchCalendarEntries() =>
+      _localStore.calendar(_requireOwner());
+
+  Future<YearOvertimeSummary> fetchYearOvertimeSummary() =>
+      _localStore.yearSummary(_requireOwner());
+
+  /// Begins a best-effort remote pass. It never rolls back local changes when
+  /// Laravel cannot be reached.
+  Future<void> syncNow({int? historyMonth, bool refreshSnapshots = true}) =>
+      _syncEngine.syncNow(
+        historyMonth: historyMonth,
+        includeRemoteRefresh: refreshSnapshots,
       );
-      return YearOvertimeSummary.fromJson(response.data ?? const {});
-    } on DioException catch (error) {
-      throw _apiClient.exceptionFrom(error);
-    }
-  }
+
+  Future<void> retryBlockedSync() => _syncEngine.retryBlocked();
 
   Future<String> submit({
     required DateTime date,
@@ -92,37 +130,43 @@ class OvertimeRepository {
     StampedPhoto? activityPhoto,
     StampedPhoto? checkoutPhoto,
   }) async {
+    final ownerId = _requireOwner();
+    final localId = _localStore.newIdentifier();
+    String? activityPath;
+    String? checkoutPath;
     try {
-      final fields = <String, dynamic>{
-        'tanggal_kegiatan': _formatDate(date),
-        'nama_kegiatan': activityName,
-        'lokasi_kegiatan': location,
-      };
-      if (activityPhoto != null) {
-        fields['foto_kegiatan'] = await MultipartFile.fromFile(
-          activityPhoto.file.path,
-          filename: 'foto_kegiatan${_fileExtension(activityPhoto.file.path)}',
-        );
-        fields['foto_kegiatan_at'] = _formatDateTime(activityPhoto.timestamp);
-      }
-      if (checkoutPhoto != null) {
-        fields['foto_pulang'] = await MultipartFile.fromFile(
-          checkoutPhoto.file.path,
-          filename: 'foto_pulang${_fileExtension(checkoutPhoto.file.path)}',
-        );
-        fields['foto_pulang_at'] = _formatDateTime(checkoutPhoto.timestamp);
-      }
-      final data = activityPhoto == null && checkoutPhoto == null
-          ? fields
-          : _toFormData(fields);
-      final response = await _dio.post<Map<String, dynamic>>(
-        '/lemburs',
-        data: data,
+      activityPath = await _persistPhoto(
+        ownerId: ownerId,
+        localId: localId,
+        slot: 'activity',
+        photo: activityPhoto,
       );
-      return _messageFromResponse(response.data) ?? 'Lembur berhasil disimpan.';
-    } on DioException catch (error) {
-      throw _apiClient.exceptionFrom(error);
+      checkoutPath = await _persistPhoto(
+        ownerId: ownerId,
+        localId: localId,
+        slot: 'checkout',
+        photo: checkoutPhoto,
+      );
+      await _localStore.createLocal(
+        ownerId: ownerId,
+        localId: localId,
+        clientRequestId: _localStore.newIdentifier(),
+        date: date,
+        activityName: activityName,
+        location: location,
+        activityPhotoPath: activityPath,
+        activityPhotoAt: activityPhoto?.timestamp,
+        checkoutPhotoPath: checkoutPath,
+        checkoutPhotoAt: checkoutPhoto?.timestamp,
+      );
+    } catch (_) {
+      await _photoStore.discard(activityPath);
+      await _photoStore.discard(checkoutPath);
+      rethrow;
     }
+    notifyListeners();
+    unawaited(syncNow());
+    return 'Lembur tersimpan di perangkat dan akan disinkronkan otomatis.';
   }
 
   Future<String> update({
@@ -133,81 +177,104 @@ class OvertimeRepository {
     StampedPhoto? newActivityPhoto,
     StampedPhoto? newCheckoutPhoto,
   }) async {
+    final ownerId = _requireOwner();
+    final localId =
+        draft.localId ??
+        (await _localStore.byServerUuid(ownerId, draft.uuid))?.localId;
+    if (localId == null) throw StateError('Laporan lokal tidak ditemukan.');
+    String? activityPath;
+    String? checkoutPath;
     try {
-      final fields = <String, dynamic>{
-        'tanggal_kegiatan': _formatDate(date),
-        'nama_kegiatan': activityName,
-        'lokasi_kegiatan': location,
-      };
-      if (newActivityPhoto != null) {
-        fields['foto_kegiatan'] = await _multipartPhoto(
-          newActivityPhoto,
-          'foto_kegiatan',
-        );
-        fields['foto_kegiatan_at'] = _formatDateTime(
-          newActivityPhoto.timestamp,
-        );
-      }
-      if (newCheckoutPhoto != null) {
-        fields['foto_pulang'] = await _multipartPhoto(
-          newCheckoutPhoto,
-          'foto_pulang',
-        );
-        fields['foto_pulang_at'] = _formatDateTime(newCheckoutPhoto.timestamp);
-      }
-      final data = newActivityPhoto == null && newCheckoutPhoto == null
-          ? fields
-          : _toFormData(fields);
-      final response = await _dio.put<Map<String, dynamic>>(
-        '/lemburs/${draft.uuid}',
-        data: data,
+      activityPath = await _persistPhoto(
+        ownerId: ownerId,
+        localId: localId,
+        slot: 'activity',
+        photo: newActivityPhoto,
       );
-      return _messageFromResponse(response.data) ??
-          'Lembur berhasil diperbarui.';
-    } on DioException catch (error) {
-      throw _apiClient.exceptionFrom(error);
+      checkoutPath = await _persistPhoto(
+        ownerId: ownerId,
+        localId: localId,
+        slot: 'checkout',
+        photo: newCheckoutPhoto,
+      );
+      await _localStore.updateLocal(
+        ownerId: ownerId,
+        current: draft,
+        date: date,
+        activityName: activityName,
+        location: location,
+        newActivityPhotoPath: activityPath,
+        newActivityPhotoAt: newActivityPhoto?.timestamp,
+        newCheckoutPhotoPath: checkoutPath,
+        newCheckoutPhotoAt: newCheckoutPhoto?.timestamp,
+      );
+    } catch (_) {
+      await _photoStore.discard(activityPath);
+      await _photoStore.discard(checkoutPath);
+      rethrow;
     }
-  }
-
-  Future<String> delete(String uuid) async {
-    try {
-      final response = await _dio.delete<Map<String, dynamic>>(
-        '/lemburs/delete/$uuid',
-      );
-      return _messageFromResponse(response.data) ?? 'Lembur berhasil dihapus.';
-    } on DioException catch (error) {
-      throw _apiClient.exceptionFrom(error);
+    if (activityPath != null && activityPath != draft.activityPhotoLocalPath) {
+      await _photoStore.discard(draft.activityPhotoLocalPath);
     }
+    if (checkoutPath != null && checkoutPath != draft.checkoutPhotoLocalPath) {
+      await _photoStore.discard(draft.checkoutPhotoLocalPath);
+    }
+    notifyListeners();
+    unawaited(syncNow());
+    return 'Perubahan tersimpan di perangkat dan akan disinkronkan otomatis.';
   }
 
-  FormData _toFormData(Map<String, dynamic> fields) {
-    final formData = FormData();
-    fields.forEach((key, value) {
-      if (value is MultipartFile) {
-        formData.files.add(MapEntry(key, value));
-      } else {
-        formData.fields.add(MapEntry(key, value.toString()));
-      }
-    });
-    return formData;
-  }
-
-  String? _messageFromResponse(Map<String, dynamic>? data) =>
-      data?['message']?.toString();
-
-  Future<MultipartFile> _multipartPhoto(StampedPhoto photo, String field) =>
-      MultipartFile.fromFile(
-        photo.file.path,
-        filename: '$field${_fileExtension(photo.file.path)}',
+  Future<String> delete(String uuid, {DraftOvertime? record}) async {
+    final ownerId = _requireOwner();
+    final target = record ?? await _localStore.byServerUuid(ownerId, uuid);
+    if (target == null) throw StateError('Laporan lokal tidak ditemukan.');
+    final removedOnlyLocal = await _localStore.deleteLocal(
+      ownerId: ownerId,
+      record: target,
+    );
+    // A delete is intentional. Its pending photos no longer need to remain on
+    // this device even if the server-side DELETE must be retried later.
+    if (target.localId != null) {
+      await _photoStore.removeOvertime(
+        ownerId: ownerId,
+        localOvertimeId: target.localId!,
       );
+    }
+    notifyListeners();
+    unawaited(syncNow());
+    return removedOnlyLocal
+        ? 'Laporan lokal dihapus.'
+        : 'Laporan dihapus dari tampilan dan menunggu sinkronisasi.';
+  }
 
-  String _formatDate(DateTime date) =>
-      '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  String _formatDateTime(DateTime value) =>
-      '${_formatDate(value)} ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}:${value.second.toString().padLeft(2, '0')}';
+  Future<String?> _persistPhoto({
+    required String ownerId,
+    required String localId,
+    required String slot,
+    required StampedPhoto? photo,
+  }) {
+    if (photo == null) return Future.value(null);
+    return _photoStore.persist(
+      ownerId: ownerId,
+      localOvertimeId: localId,
+      source: photo.file,
+      slot: slot,
+    );
+  }
 
-  String _fileExtension(String path) {
-    final index = path.lastIndexOf('.');
-    return index < 0 ? '.jpg' : path.substring(index);
+  String _requireOwner() {
+    final owner = _ownerId;
+    if (owner == null || owner.isEmpty) {
+      throw StateError('Sesi pengguna lokal belum siap.');
+    }
+    return owner;
+  }
+
+  @override
+  void dispose() {
+    syncStatus.removeListener(notifyListeners);
+    unawaited(_syncEngine.dispose());
+    syncStatus.dispose();
+    super.dispose();
   }
 }

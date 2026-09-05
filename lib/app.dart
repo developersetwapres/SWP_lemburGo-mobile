@@ -17,6 +17,7 @@ import 'features/overtime/data/services/photo_processing_service.dart';
 import 'features/overtime/presentation/overtime_form_page.dart';
 import 'shared/widgets/app_bottom_navigation.dart';
 import 'shared/widgets/app_logo.dart';
+import 'shared/widgets/sync_status_banner.dart';
 
 class LemburNakITApp extends StatefulWidget {
   const LemburNakITApp({super.key});
@@ -48,7 +49,14 @@ class _LemburNakITAppState extends State<LemburNakITApp> {
         AuthRepository(apiClient.dio, apiClient, storage),
       );
 
-      final overtimeRepository = OvertimeRepository(apiClient.dio, apiClient);
+      final overtimeRepository = await OvertimeRepository.create(
+        apiClient.dio,
+        apiClient,
+      );
+      overtimeRepository.setSessionExpiredHandler(() async {
+        await overtimeRepository.deactivateUser();
+        await authController.expireSession();
+      });
 
       final photoProcessingService = PhotoProcessingService();
 
@@ -77,6 +85,7 @@ class _LemburNakITAppState extends State<LemburNakITApp> {
   @override
   void dispose() {
     _authController?.dispose();
+    _overtimeRepository?.dispose();
     super.dispose();
   }
 
@@ -152,11 +161,15 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
   late final CalendarController _calendarController;
+  late final Future<void> _activation;
 
   @override
   void initState() {
     super.initState();
     _calendarController = CalendarController(widget.overtimeRepository);
+    _activation = widget.overtimeRepository.activateUser(
+      widget.authController.user!.id,
+    );
   }
 
   @override
@@ -171,7 +184,7 @@ class _AppShellState extends State<AppShell> {
         builder: (_) => OvertimeFormPage(
           repository: widget.overtimeRepository,
           photoService: widget.photoProcessingService,
-          onSessionExpired: widget.authController.expireSession,
+          onSessionExpired: _expireSession,
           draft: draft,
         ),
       ),
@@ -180,39 +193,67 @@ class _AppShellState extends State<AppShell> {
     return saved ?? false;
   }
 
+  Future<void> _logout() async {
+    await widget.overtimeRepository.deactivateUser();
+    await widget.authController.logout();
+  }
+
+  Future<void> _expireSession() async {
+    await widget.overtimeRepository.deactivateUser();
+    await widget.authController.expireSession();
+  }
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: IndexedStack(
-      index: _selectedIndex,
-      children: [
-        HomePage(
-          user: widget.authController.user!,
-          repository: widget.overtimeRepository,
-          onStart: _openOvertimeForm,
-          onContinue: _openOvertimeForm,
-          onLogout: widget.authController.logout,
-          onSessionExpired: widget.authController.expireSession,
+  Widget build(BuildContext context) => FutureBuilder<void>(
+    future: _activation,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState != ConnectionState.done) {
+        return const _SessionSplash();
+      }
+      return Scaffold(
+        body: Column(
+          children: [
+            SyncStatusBanner(
+              status: widget.overtimeRepository.syncStatus,
+              onRetry: widget.overtimeRepository.retryBlockedSync,
+            ),
+            Expanded(
+              child: IndexedStack(
+                index: _selectedIndex,
+                children: [
+                  HomePage(
+                    user: widget.authController.user!,
+                    repository: widget.overtimeRepository,
+                    onStart: _openOvertimeForm,
+                    onContinue: _openOvertimeForm,
+                    onLogout: _logout,
+                    onSessionExpired: _expireSession,
+                  ),
+                  HistoryPage(
+                    repository: widget.overtimeRepository,
+                    onEdit: _openOvertimeForm,
+                    onSessionExpired: _expireSession,
+                    isActive: _selectedIndex == 1,
+                  ),
+                  CalendarPage(
+                    controller: _calendarController,
+                    repository: widget.overtimeRepository,
+                    onSessionExpired: _expireSession,
+                    isActive: _selectedIndex == 2,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        HistoryPage(
-          repository: widget.overtimeRepository,
-          onEdit: _openOvertimeForm,
-          onSessionExpired: widget.authController.expireSession,
-          isActive: _selectedIndex == 1,
+        bottomNavigationBar: AppBottomNavigation(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: (index) {
+            setState(() => _selectedIndex = index);
+          },
         ),
-        CalendarPage(
-          controller: _calendarController,
-          repository: widget.overtimeRepository,
-          onSessionExpired: widget.authController.expireSession,
-          isActive: _selectedIndex == 2,
-        ),
-      ],
-    ),
-    bottomNavigationBar: AppBottomNavigation(
-      selectedIndex: _selectedIndex,
-      onDestinationSelected: (index) {
-        setState(() => _selectedIndex = index);
-      },
-    ),
+      );
+    },
   );
 }
 

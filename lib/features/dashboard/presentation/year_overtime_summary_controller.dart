@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../core/api/api_exception.dart';
@@ -12,6 +14,24 @@ class YearOvertimeSummaryController extends ChangeNotifier {
   YearOvertimeSummary? summary;
   bool isLoading = true;
   String? errorMessage;
+  bool _reloadScheduled = false;
+
+  void startListening() => _repository.addListener(_onRepositoryChanged);
+
+  void _onRepositoryChanged() {
+    if (_reloadScheduled) return;
+    _reloadScheduled = true;
+    scheduleMicrotask(() async {
+      _reloadScheduled = false;
+      await load();
+    });
+  }
+
+  @override
+  void dispose() {
+    _repository.removeListener(_onRepositoryChanged);
+    super.dispose();
+  }
 
   Future<YearSummaryLoadOutcome> load() async {
     isLoading = true;

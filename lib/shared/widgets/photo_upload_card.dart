@@ -17,6 +17,7 @@ class PhotoUploadCard extends StatelessWidget {
     required this.isProcessing,
     required this.onTap,
     this.existingImageUrl,
+    this.existingImageFile,
     this.onRemove,
     this.onChangeTimestamp,
     super.key,
@@ -25,6 +26,7 @@ class PhotoUploadCard extends StatelessWidget {
   final String label;
   final File? photoFile;
   final String? existingImageUrl;
+  final File? existingImageFile;
   final DateTime? timestamp;
   final String? modeLabel;
   final bool isProcessing;
@@ -35,12 +37,14 @@ class PhotoUploadCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isProcessing) return const _ProcessingPhotoCard();
-    if (photoFile == null && existingImageUrl == null) {
+    if (photoFile == null &&
+        existingImageFile == null &&
+        existingImageUrl == null) {
       return _EmptyPhoto(label: label, onTap: onTap);
     }
     return _PhotoPreview(
       label: label,
-      file: photoFile,
+      file: photoFile ?? existingImageFile,
       remoteUrl: existingImageUrl,
       timestamp: timestamp,
       modeLabel: modeLabel ?? 'FOTO TERSIMPAN',

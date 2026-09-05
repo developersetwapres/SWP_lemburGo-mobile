@@ -3,12 +3,16 @@ class CalendarOvertime {
     required this.date,
     required this.overtimeId,
     required this.uuid,
+    this.localId,
   });
 
   /// Calendar dates are intentionally parsed as local date-only values.
   final DateTime date;
   final int overtimeId;
   final String uuid;
+
+  /// Used for records created offline before Laravel has returned a UUID.
+  final String? localId;
 
   String get dateKey => dateKeyFor(date);
 

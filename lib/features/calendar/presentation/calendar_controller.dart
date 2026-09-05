@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../core/api/api_exception.dart';
@@ -13,8 +15,22 @@ class CalendarController extends ChangeNotifier {
   bool isLoading = true;
   bool isOpeningDetail = false;
   String? errorMessage;
+  bool _reloadScheduled = false;
+  bool _hasLoaded = false;
+
+  void startListening() => _repository.addListener(_onRepositoryChanged);
+
+  void _onRepositoryChanged() {
+    if (_reloadScheduled || !_hasLoaded) return;
+    _reloadScheduled = true;
+    scheduleMicrotask(() async {
+      _reloadScheduled = false;
+      await load();
+    });
+  }
 
   Future<CalendarLoadOutcome> load({bool showSkeleton = false}) async {
+    _hasLoaded = true;
     if (showSkeleton) isLoading = true;
     errorMessage = null;
     notifyListeners();
@@ -22,7 +38,10 @@ class CalendarController extends ChangeNotifier {
       final entries = await _repository.fetchCalendarEntries();
       entriesByDate = {
         for (final entry in entries)
-          if (entry.overtimeId > 0) entry.dateKey: entry,
+          if (entry.overtimeId > 0 ||
+              entry.uuid.isNotEmpty ||
+              entry.localId?.isNotEmpty == true)
+            entry.dateKey: entry,
       };
       return CalendarLoadOutcome.success;
     } on ApiException catch (error) {
@@ -48,6 +67,12 @@ class CalendarController extends ChangeNotifier {
     isOpeningDetail = true;
     notifyListeners();
     try {
+      if (entry.localId?.isNotEmpty == true) {
+        final localRecord = await _repository.fetchLocalDetail(entry.localId!);
+        if (localRecord != null) {
+          return CalendarDetailResult.record(localRecord);
+        }
+      }
       if (entry.uuid.isEmpty) {
         return const CalendarDetailResult.error(
           message: 'UUID lembur tidak tersedia dari data kalender.',
@@ -69,6 +94,12 @@ class CalendarController extends ChangeNotifier {
       isOpeningDetail = false;
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    _repository.removeListener(_onRepositoryChanged);
+    super.dispose();
   }
 }
 

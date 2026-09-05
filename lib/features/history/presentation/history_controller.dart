@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../core/api/api_exception.dart';
@@ -13,10 +15,29 @@ class HistoryController extends ChangeNotifier {
   bool isLoading = true;
   bool isFiltering = false;
   int? _requestedMonth;
+  bool _reloadScheduled = false;
 
-  int get selectedMonth => _requestedMonth ?? history?.month ?? DateTime.now().month;
+  int get selectedMonth =>
+      _requestedMonth ?? history?.month ?? DateTime.now().month;
 
-  Future<HistoryLoadOutcome> load({int? month, bool showSkeleton = false}) async {
+  void startListening() => _repository.addListener(_onRepositoryChanged);
+
+  void _onRepositoryChanged() {
+    if (_reloadScheduled || !_hasLoaded) return;
+    _reloadScheduled = true;
+    scheduleMicrotask(() async {
+      _reloadScheduled = false;
+      await load(month: selectedMonth);
+    });
+  }
+
+  bool _hasLoaded = false;
+
+  Future<HistoryLoadOutcome> load({
+    int? month,
+    bool showSkeleton = false,
+  }) async {
+    _hasLoaded = true;
     _requestedMonth = month ?? _requestedMonth;
     if (showSkeleton) {
       isLoading = true;
@@ -45,6 +66,12 @@ class HistoryController extends ChangeNotifier {
   }
 
   Future<HistoryLoadOutcome> refresh() => load(month: selectedMonth);
+
+  @override
+  void dispose() {
+    _repository.removeListener(_onRepositoryChanged);
+    super.dispose();
+  }
 }
 
 enum HistoryLoadOutcome { success, unauthenticated, failure }
