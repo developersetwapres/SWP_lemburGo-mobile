@@ -451,9 +451,15 @@ class _CameraPreviewCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final screenAspectRatio = constraints.maxWidth / constraints.maxHeight;
-      final previewAspectRatio = controller.value.aspectRatio;
-      final aspectRatioScale = previewAspectRatio / screenAspectRatio;
+      final viewportAspectRatio = constraints.maxWidth / constraints.maxHeight;
+      // CameraPreview already rotates Android's native texture and, because
+      // this page locks the capture orientation to portrait, lays itself out
+      // with the inverse of CameraValue.aspectRatio. The previous wrapper
+      // imposed the original (landscape) ratio a second time, so its child and
+      // CameraPreview disagreed about the preview dimensions and the feed was
+      // visibly squashed. Match CameraPreview's portrait layout ratio here.
+      final previewAspectRatio = 1 / controller.value.aspectRatio;
+      final aspectRatioScale = previewAspectRatio / viewportAspectRatio;
       final scale = aspectRatioScale < 1
           ? 1 / aspectRatioScale
           : aspectRatioScale;
