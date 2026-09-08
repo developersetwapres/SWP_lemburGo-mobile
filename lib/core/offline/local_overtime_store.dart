@@ -23,7 +23,9 @@ class LocalOvertimeStore {
   Future<List<DraftOvertime>> drafts(String ownerId) async {
     final rows = await _database.query(
       'overtimes',
-      where: 'owner_id = ? AND is_deleted = 0 AND is_draft = 1',
+      where:
+          "owner_id = ? AND is_deleted = 0 "
+          "AND LOWER(TRIM(server_status)) = 'draft'",
       whereArgs: [ownerId],
       orderBy: 'activity_date DESC, updated_at DESC',
     );
@@ -38,6 +40,7 @@ class LocalOvertimeStore {
       'overtimes',
       where:
           'owner_id = ? AND is_deleted = 0 '
+          "AND LOWER(TRIM(server_status)) != 'draft' "
           'AND activity_date >= ? AND activity_date < ?',
       whereArgs: [ownerId, first, last],
       orderBy: 'activity_date DESC, updated_at DESC',
@@ -67,7 +70,9 @@ class LocalOvertimeStore {
   Future<List<CalendarOvertime>> calendar(String ownerId) async {
     final rows = await _database.query(
       'overtimes',
-      where: 'owner_id = ? AND is_deleted = 0',
+      where:
+          "owner_id = ? AND is_deleted = 0 "
+          "AND LOWER(TRIM(server_status)) != 'draft'",
       whereArgs: [ownerId],
     );
     final entries = <String, CalendarOvertime>{
@@ -78,12 +83,13 @@ class LocalOvertimeStore {
           date: CalendarOvertime.parseDateOnly(row['activity_date'] as String?),
           overtimeId: int.tryParse((row['server_id'] ?? '0').toString()) ?? 0,
           uuid: (row['server_uuid'] ?? '').toString(),
+          status: row['server_status']?.toString() ?? 'draft',
           localId: row['local_id']?.toString(),
         ),
     };
     final remoteRows = await _database.query(
       'calendar_entries',
-      where: 'owner_id = ?',
+      where: "owner_id = ? AND LOWER(TRIM(server_status)) != 'draft'",
       whereArgs: [ownerId],
     );
     for (final row in remoteRows) {
@@ -96,6 +102,7 @@ class LocalOvertimeStore {
           date: date,
           overtimeId: _int(row['server_id']),
           uuid: row['server_uuid']?.toString() ?? '',
+          status: row['server_status']?.toString() ?? 'draft',
         ),
       );
     }
@@ -635,6 +642,7 @@ class LocalOvertimeStore {
           'activity_date': CalendarOvertime.dateKeyFor(entry.date),
           'server_id': entry.overtimeId,
           'server_uuid': entry.uuid,
+          'server_status': entry.status,
           'updated_at': DateTime.now().toUtc().toIso8601String(),
         });
       }

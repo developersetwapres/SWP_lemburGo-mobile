@@ -1,7 +1,8 @@
 import 'package:sqflite/sqflite.dart';
 
 import 'offline_database_platform.dart'
-    if (dart.library.html) 'offline_database_web.dart' as platform;
+    if (dart.library.html) 'offline_database_web.dart'
+    as platform;
 
 /// The on-device source of truth for all business data. SQLite is used instead
 /// of a key-value cache because each local mutation and its queue entry must be
@@ -9,7 +10,7 @@ import 'offline_database_platform.dart'
 class OfflineDatabase {
   OfflineDatabase._();
 
-  static const schemaVersion = 1;
+  static const schemaVersion = 2;
 
   static Future<Database> open({
     DatabaseFactory? factory,
@@ -123,6 +124,7 @@ class OfflineDatabase {
         activity_date TEXT NOT NULL,
         server_id INTEGER NOT NULL DEFAULT 0,
         server_uuid TEXT NOT NULL DEFAULT '',
+        server_status TEXT NOT NULL DEFAULT 'draft',
         updated_at TEXT NOT NULL,
         PRIMARY KEY(owner_id, activity_date)
       )
@@ -134,8 +136,12 @@ class OfflineDatabase {
     int oldVersion,
     int newVersion,
   ) async {
-    // Version one is intentionally a fresh additive database. Session data is
-    // still owned by TokenStorage, so existing installations are unaffected.
     if (oldVersion < 1) await _create(db, newVersion);
+    if (oldVersion < 2) {
+      await db.execute(
+        "ALTER TABLE calendar_entries "
+        "ADD COLUMN server_status TEXT NOT NULL DEFAULT 'draft'",
+      );
+    }
   }
 }

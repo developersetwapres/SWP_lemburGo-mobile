@@ -113,6 +113,13 @@ class OvertimeRepository extends ChangeNotifier {
   Future<YearOvertimeSummary> fetchYearOvertimeSummary() =>
       _localStore.yearSummary(_requireOwner());
 
+  /// Requests the server-generated PDF. The server enforces both the logged-in
+  /// user scope and the requirement that records are complete with both photos.
+  Future<OvertimePdfExport> exportPdf({required String month}) {
+    _requireOwner();
+    return _remoteApi.exportPdf(month: month);
+  }
+
   /// Begins a best-effort remote pass. It never rolls back local changes when
   /// Laravel cannot be reached.
   Future<void> syncNow({int? historyMonth, bool refreshSnapshots = true}) =>

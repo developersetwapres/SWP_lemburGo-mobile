@@ -3,10 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/api/api_exception.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../history/presentation/overtime_detail_page.dart';
 import '../../overtime/data/overtime_repository.dart';
+import '../../overtime/data/remote_overtime_api.dart';
+import '../../overtime/data/services/overtime_pdf_delivery.dart';
 import '../data/models/calendar_overtime.dart';
 import '../data/services/holiday_calendar.dart';
 import 'calendar_controller.dart';
@@ -35,6 +38,7 @@ class _CalendarPageState extends State<CalendarPage> {
   late DateTime _visibleMonth;
   late DateTime _selectedDate;
   bool _hasLoaded = false;
+  bool _isExportingPdf = false;
 
   CalendarController get _controller => widget.controller;
 
@@ -123,6 +127,58 @@ class _CalendarPageState extends State<CalendarPage> {
     if (entry != null) await _openDetail(entry);
   }
 
+  Future<void> _exportPdf() async {
+    if (_isExportingPdf) return;
+    final month = DateFormat('yyyy-MM').format(_visibleMonth);
+    setState(() => _isExportingPdf = true);
+    try {
+      final report = await widget.repository.exportPdf(month: month);
+      final delivery = await const OvertimePdfDelivery().deliver(
+        bytes: report.bytes,
+        fileName: report.fileName,
+      );
+      if (!mounted) return;
+      final message = delivery.shareSheetOpened
+          ? '${report.fileName} berhasil disimpan. Pilih aplikasi untuk membuka atau membagikannya.'
+          : '${report.fileName} berhasil disimpan di ${delivery.savedLocation}. Buka file tersebut untuk melihat laporan.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+      );
+    } on NoOvertimePdfDataException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Tidak ada data lembur lengkap yang dapat diekspor untuk bulan ini.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on ApiException catch (error) {
+      if (error.isUnauthenticated) {
+        await widget.onSessionExpired();
+        return;
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Gagal mengunduh PDF lembur. Silakan coba lagi.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isExportingPdf = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => SafeArea(
     child: AnimatedBuilder(
@@ -143,6 +199,8 @@ class _CalendarPageState extends State<CalendarPage> {
                     month: _visibleMonth,
                     onPrevious: () => _moveMonth(-1),
                     onNext: () => _moveMonth(1),
+                    onExport: _exportPdf,
+                    isExporting: _isExportingPdf,
                   ),
                   const SizedBox(height: 14),
                   AppCard(
@@ -204,43 +262,68 @@ class _MonthNavigator extends StatelessWidget {
     required this.month,
     required this.onPrevious,
     required this.onNext,
+    required this.onExport,
+    required this.isExporting,
   });
   final DateTime month;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
+  final VoidCallback onExport;
+  final bool isExporting;
 
   @override
   Widget build(BuildContext context) => AppCard(
     color: AppColors.skyBlueLight,
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-    child: Row(
+    child: Column(
       children: [
-        IconButton(
-          tooltip: 'Bulan sebelumnya',
-          onPressed: onPrevious,
-          icon: const Icon(Icons.chevron_left_rounded),
-          color: AppColors.skyBlue,
-        ),
-        Expanded(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
-            child: Text(
-              DateFormat('MMMM y', 'id_ID').format(month),
-              key: ValueKey('${month.year}-${month.month}'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.navy,
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
+        Row(
+          children: [
+            IconButton(
+              tooltip: 'Bulan sebelumnya',
+              onPressed: onPrevious,
+              icon: const Icon(Icons.chevron_left_rounded),
+              color: AppColors.skyBlue,
+            ),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: Text(
+                  DateFormat('MMMM y', 'id_ID').format(month),
+                  key: ValueKey('${month.year}-${month.month}'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.navy,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
               ),
             ),
-          ),
+            IconButton(
+              tooltip: 'Bulan berikutnya',
+              onPressed: onNext,
+              icon: const Icon(Icons.chevron_right_rounded),
+              color: AppColors.skyBlue,
+            ),
+          ],
         ),
-        IconButton(
-          tooltip: 'Bulan berikutnya',
-          onPressed: onNext,
-          icon: const Icon(Icons.chevron_right_rounded),
-          color: AppColors.skyBlue,
+        const Divider(height: 14),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: isExporting ? null : onExport,
+            icon: isExporting
+                ? const SizedBox(
+                    width: 17,
+                    height: 17,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.picture_as_pdf_outlined),
+            label: Text(
+              isExporting ? 'Mengunduh PDF...' : 'Ekspor PDF bulan ini',
+            ),
+          ),
         ),
       ],
     ),

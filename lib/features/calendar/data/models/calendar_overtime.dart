@@ -3,6 +3,7 @@ class CalendarOvertime {
     required this.date,
     required this.overtimeId,
     required this.uuid,
+    required this.status,
     this.localId,
   });
 
@@ -10,17 +11,21 @@ class CalendarOvertime {
   final DateTime date;
   final int overtimeId;
   final String uuid;
+  final String status;
 
   /// Used for records created offline before Laravel has returned a UUID.
   final String? localId;
 
   String get dateKey => dateKeyFor(date);
 
+  bool get isDraft => status.trim().toLowerCase() == 'draft';
+
   factory CalendarOvertime.fromJson(Map<String, dynamic> json) {
     return CalendarOvertime(
       date: parseDateOnly(json['tanggal']?.toString()),
       overtimeId: int.tryParse(json['lembur_id']?.toString() ?? '') ?? 0,
       uuid: _uuid(json),
+      status: _status(json),
     );
   }
 
@@ -31,6 +36,12 @@ class CalendarOvertime {
             ?.toString()
             .trim() ??
         '';
+  }
+
+  static String _status(Map<String, dynamic> json) {
+    final attributes = json['attributes'];
+    final nestedStatus = attributes is Map ? attributes['status'] : null;
+    return (json['status'] ?? nestedStatus)?.toString().trim() ?? 'draft';
   }
 
   static DateTime parseDateOnly(String? value) {

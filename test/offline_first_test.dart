@@ -28,6 +28,65 @@ void main() {
     expect(record.uuid, 'a073fd2b-b98f-4419-8aaa-ebf0872dc59a');
   });
 
+  test('draft status is shown only on Home, not History or Calendar', () async {
+    final fixture = await _StoreFixture.open();
+    addTearDown(fixture.close);
+    final now = DateTime.now();
+    final draftDate = DateTime(now.year, now.month, 5);
+    final completedDate = DateTime(now.year, now.month, 6);
+    await fixture.store.createLocal(
+      ownerId: 'pegawai-a',
+      localId: 'local-draft',
+      clientRequestId: 'request-draft',
+      date: draftDate,
+      activityName: 'Lokal draft',
+      location: 'Jakarta',
+    );
+    await fixture.store.upsertRemoteRecords(
+      ownerId: 'pegawai-a',
+      records: [
+        _serverRecord(
+          uuid: 'server-draft',
+          status: 'draft',
+          activityDate: draftDate,
+        ),
+        _serverRecord(
+          uuid: 'server-complete',
+          status: 'complete',
+          activityDate: completedDate,
+        ),
+      ],
+    );
+    await fixture.store.replaceCalendarEntries(
+      ownerId: 'pegawai-a',
+      entries: [
+        CalendarOvertime(
+          date: draftDate,
+          overtimeId: 1,
+          uuid: 'calendar-draft',
+          status: 'draft',
+        ),
+        CalendarOvertime(
+          date: completedDate,
+          overtimeId: 2,
+          uuid: 'calendar-complete',
+          status: 'complete',
+        ),
+      ],
+    );
+
+    final drafts = await fixture.store.drafts('pegawai-a');
+    final history = await fixture.store.history('pegawai-a', now.month);
+    final calendar = await fixture.store.calendar('pegawai-a');
+
+    expect(
+      drafts.map((record) => record.uuid),
+      unorderedEquals(['', 'server-draft']),
+    );
+    expect(history.records.map((record) => record.uuid), ['server-complete']);
+    expect(calendar.map((entry) => entry.uuid), ['server-complete']);
+  });
+
   test('create and update offline are local, durable, and coalesced', () async {
     final fixture = await _StoreFixture.open();
     addTearDown(fixture.close);
@@ -535,14 +594,22 @@ class _FakeRemote implements OvertimeRemoteGateway {
       const YearOvertimeSummary.empty();
 
   @override
+  Future<OvertimePdfExport> exportPdf({required String month}) async =>
+      OvertimePdfExport(month: month, bytes: const [37, 80, 68, 70]);
+
+  @override
   Future<void> update(DraftOvertime record) async {}
 }
 
-DraftOvertime _serverRecord({required String uuid}) => DraftOvertime(
+DraftOvertime _serverRecord({
+  required String uuid,
+  String status = 'draft',
+  DateTime? activityDate,
+}) => DraftOvertime(
   id: '21',
   uuid: uuid,
-  activityDate: DateTime(2026, 9, 6),
+  activityDate: activityDate ?? DateTime(2026, 9, 6),
   activityName: 'Audit',
   location: 'Jakarta',
-  status: 'draft',
+  status: status,
 );

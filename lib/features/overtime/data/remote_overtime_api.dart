@@ -15,6 +15,7 @@ abstract interface class OvertimeRemoteGateway {
   Future<OvertimeHistory> fetchHistory({int? month});
   Future<List<CalendarOvertime>> fetchCalendarEntries();
   Future<YearOvertimeSummary> fetchYearOvertimeSummary();
+  Future<OvertimePdfExport> exportPdf({required String month});
   Future<DraftOvertime> create(DraftOvertime record);
   Future<void> update(DraftOvertime record);
   Future<void> delete(String uuid);
@@ -100,6 +101,30 @@ class RemoteOvertimeApi implements OvertimeRemoteGateway {
       );
       return YearOvertimeSummary.fromJson(response.data ?? const {});
     } on DioException catch (error) {
+      throw _apiClient.exceptionFrom(error);
+    }
+  }
+
+  @override
+  Future<OvertimePdfExport> exportPdf({required String month}) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        '/lemburs/export',
+        queryParameters: {'bulan': month},
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: const {'Accept': 'application/pdf'},
+        ),
+      );
+      final bytes = response.data;
+      if (bytes == null || bytes.isEmpty) {
+        throw const NoOvertimePdfDataException();
+      }
+      return OvertimePdfExport(month: month, bytes: bytes);
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404) {
+        throw const NoOvertimePdfDataException();
+      }
       throw _apiClient.exceptionFrom(error);
     }
   }
@@ -210,8 +235,13 @@ class RemoteOvertimeApi implements OvertimeRemoteGateway {
       throw StateError('File $field yang menunggu upload tidak ditemukan.');
     }
     final bytes = await readLocalPhoto(localPath);
-    if (bytes == null) throw StateError('File $field yang menunggu upload tidak ditemukan.');
-    return MultipartFile.fromBytes(bytes, filename: '$field${_extension(localPath)}');
+    if (bytes == null) {
+      throw StateError('File $field yang menunggu upload tidak ditemukan.');
+    }
+    return MultipartFile.fromBytes(
+      bytes,
+      filename: '$field${_extension(localPath)}',
+    );
   }
 
   String _formatDate(DateTime date) =>
@@ -233,4 +263,21 @@ class MissingCreateIdentityException implements Exception {
   @override
   String toString() =>
       'Server belum mengembalikan UUID laporan. Sinkronisasi create dihentikan untuk mencegah duplikasi.';
+}
+
+class OvertimePdfExport {
+  const OvertimePdfExport({required this.month, required this.bytes});
+
+  final String month;
+  final List<int> bytes;
+
+  String get fileName => 'lembur-$month.pdf';
+}
+
+class NoOvertimePdfDataException implements Exception {
+  const NoOvertimePdfDataException();
+
+  @override
+  String toString() =>
+      'Tidak ada data lembur lengkap yang dapat diekspor untuk bulan ini.';
 }
