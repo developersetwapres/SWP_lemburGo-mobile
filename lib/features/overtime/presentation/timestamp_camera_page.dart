@@ -234,7 +234,7 @@ class _TimestampCameraPageState extends State<TimestampCameraPage>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _CameraPreviewCover(controller: controller),
+            _CameraPreviewFrame(controller: controller),
             Positioned(
               top: 12,
               left: 16,
@@ -440,42 +440,24 @@ class _TimestampCameraLoading extends StatelessWidget {
   );
 }
 
-/// Makes the native camera feed cover the complete Stack. The timestamp and
-/// controls are positioned above this widget, so they never reserve space
-/// below the preview or reduce its available area.
-class _CameraPreviewCover extends StatelessWidget {
-  const _CameraPreviewCover({required this.controller});
+/// Displays the entire native camera frame without applying a UI crop. The
+/// timestamp and controls remain in the parent Stack, so they do not alter
+/// either the preview's dimensions or the captured JPEG.
+class _CameraPreviewFrame extends StatelessWidget {
+  const _CameraPreviewFrame({required this.controller});
 
   final CameraController controller;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final viewportAspectRatio = constraints.maxWidth / constraints.maxHeight;
-      // CameraPreview already rotates Android's native texture and, because
-      // this page locks the capture orientation to portrait, lays itself out
-      // with the inverse of CameraValue.aspectRatio. The previous wrapper
-      // imposed the original (landscape) ratio a second time, so its child and
-      // CameraPreview disagreed about the preview dimensions and the feed was
-      // visibly squashed. Match CameraPreview's portrait layout ratio here.
-      final previewAspectRatio = 1 / controller.value.aspectRatio;
-      final aspectRatioScale = previewAspectRatio / viewportAspectRatio;
-      final scale = aspectRatioScale < 1
-          ? 1 / aspectRatioScale
-          : aspectRatioScale;
-      return ClipRect(
-        child: Transform.scale(
-          scale: scale,
-          alignment: Alignment.center,
-          child: Center(
-            child: AspectRatio(
-              aspectRatio: previewAspectRatio,
-              child: CameraPreview(controller),
-            ),
-          ),
-        ),
-      );
-    },
+  Widget build(BuildContext context) => Center(
+    // CameraPreview already uses this inverted value while portrait capture
+    // orientation is locked. Keeping the outer constraint identical avoids
+    // distortion and, unlike BoxFit.cover/Transform.scale, does not crop the
+    // 16:9 frame that CameraX also uses for ImageCapture.
+    child: AspectRatio(
+      aspectRatio: 1 / controller.value.aspectRatio,
+      child: CameraPreview(controller),
+    ),
   );
 }
 
