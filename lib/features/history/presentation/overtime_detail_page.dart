@@ -270,19 +270,19 @@ Future<_DeleteRecordResult> _confirmAndDelete(
   required DraftOvertime record,
   required OvertimeRepository repository,
 }) async {
-  if (record.uuid.trim().isEmpty) {
-    return const _DeleteRecordResult.failed(
-      'Data laporan tidak memiliki UUID sehingga tidak dapat dihapus.',
-    );
-  }
+  final isLocalOnly = record.uuid.trim().isEmpty;
 
   final shouldDelete = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
       icon: const Icon(Icons.delete_forever_outlined, color: AppColors.error),
-      title: const Text('Hapus laporan lembur?'),
+      title: Text(
+        isLocalOnly ? 'Hapus laporan lokal?' : 'Hapus laporan lembur?',
+      ),
       content: Text(
-        'Laporan “${record.activityName}” beserta dokumentasinya akan dihapus permanen dan tidak dapat dipulihkan.',
+        isLocalOnly
+            ? 'Laporan “${record.activityName}” belum tersimpan di server. Laporan dan dokumentasinya akan dihapus dari perangkat ini.'
+            : 'Laporan “${record.activityName}” beserta dokumentasinya akan dihapus permanen dan tidak dapat dipulihkan.',
       ),
       actions: [
         TextButton(

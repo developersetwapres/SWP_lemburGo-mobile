@@ -220,7 +220,7 @@ void main() {
   );
 
   test(
-    'validation failure is retained locally and is not silently retried',
+    'validation failure remains visible and can be discarded locally',
     () async {
       final fixture = await _StoreFixture.open();
       addTearDown(fixture.close);
@@ -257,6 +257,14 @@ void main() {
       expect(await fixture.store.readyOperations('pegawai-a'), isEmpty);
       expect(status.apiReachable, isTrue);
       expect(status.lastError, 'Tanggal lembur sudah memiliki laporan.');
+
+      final removedOnlyLocal = await fixture.store.deleteLocal(
+        ownerId: 'pegawai-a',
+        record: record,
+      );
+      expect(removedOnlyLocal, isTrue);
+      expect(await fixture.store.byLocalId('pegawai-a', 'local-1'), isNull);
+      expect(await fixture.store.pendingOperationCount('pegawai-a'), 0);
     },
   );
 
