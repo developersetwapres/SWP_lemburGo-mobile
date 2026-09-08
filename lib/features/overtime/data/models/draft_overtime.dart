@@ -80,8 +80,11 @@ class DraftOvertime {
   };
 
   factory DraftOvertime.fromJson(Map<String, dynamic> json) {
+    // Most endpoints return a JSON:API resource (`attributes`). Create may
+    // instead return a compact Laravel acknowledgement such as
+    // `data: {uuid: '...'}`. Both forms identify the same record.
     final attributes = Map<String, dynamic>.from(
-      json['attributes'] as Map? ?? const <String, dynamic>{},
+      json['attributes'] as Map? ?? json,
     );
     return DraftOvertime(
       id: json['id']?.toString() ?? '',

@@ -20,6 +20,14 @@ import 'package:kmz_lemburgo_mobile/features/overtime/data/remote_overtime_api.d
 void main() {
   setUpAll(sqfliteFfiInit);
 
+  test('compact create response exposes its UUID', () {
+    final record = DraftOvertime.fromJson(const {
+      'uuid': 'a073fd2b-b98f-4419-8aaa-ebf0872dc59a',
+    });
+
+    expect(record.uuid, 'a073fd2b-b98f-4419-8aaa-ebf0872dc59a');
+  });
+
   test('create and update offline are local, durable, and coalesced', () async {
     final fixture = await _StoreFixture.open();
     addTearDown(fixture.close);
