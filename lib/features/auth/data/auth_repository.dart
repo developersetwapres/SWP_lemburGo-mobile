@@ -79,7 +79,7 @@ class AuthRepository {
     }
 
     try {
-      await _dio.post<Map<String, dynamic>>('/auth/logout');
+      await _dio.delete<Map<String, dynamic>>('/auth/logout');
     } on DioException {
       // Local credentials are always removed so the user can safely leave
       // this device even when the server cannot be reached.
