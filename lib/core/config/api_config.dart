@@ -3,8 +3,9 @@ abstract final class ApiConfig {
   /// Same-origin Web deployments can keep the safe `/api` default.
   static const baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: '/api',
+    defaultValue: 'https://10.1.3.86/api',
   );
+
   /// Optional browser-compatible reverse-geocoding endpoint. It receives
   /// `lat`/`lng` and returns `road`, `districtCity`, and `province`.
   static const reverseGeocodingUrl = String.fromEnvironment(
