@@ -257,7 +257,8 @@ class OvertimeRepository extends ChangeNotifier {
     return _photoStore.persist(
       ownerId: ownerId,
       localOvertimeId: localId,
-      source: photo.file,
+      bytes: photo.bytes,
+      fileName: photo.fileName,
       slot: slot,
     );
   }

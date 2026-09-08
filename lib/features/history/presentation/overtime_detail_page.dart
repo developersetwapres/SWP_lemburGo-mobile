@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +7,7 @@ import '../../../core/offline/sync_models.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/remote_image.dart';
+import 'local_photo_image.dart';
 import '../../../shared/widgets/timestamp_info_panel.dart';
 import '../../overtime/data/models/draft_overtime.dart';
 import '../../overtime/data/overtime_repository.dart';
@@ -710,11 +710,10 @@ class _PhotoAlbumTile extends StatelessWidget {
                     aspectRatio: 4 / 3,
                     child: ColoredBox(
                       color: AppColors.navy,
-                      child: photo.localFile != null
-                          ? Image.file(
-                              photo.localFile!,
+                      child: photo.localPath != null
+                          ? LocalPhotoImage(
+                              reference: photo.localPath!,
                               fit: BoxFit.contain,
-                              errorBuilder: (_, _, _) => const _ImageError(),
                             )
                           : RemoteImage(
                               url: photo.url!,
@@ -760,14 +759,7 @@ class _OvertimePhoto {
   final String emptyMessage;
   final IconData icon;
 
-  File? get localFile {
-    final value = localPath;
-    if (value == null) return null;
-    final file = File(value);
-    return file.existsSync() ? file : null;
-  }
-
-  bool get isAvailable => localFile != null || url != null;
+  bool get isAvailable => localPath != null || url != null;
 }
 
 class _PhotoGalleryPage extends StatefulWidget {
@@ -809,11 +801,10 @@ class _PhotoGalleryPageState extends State<_PhotoGalleryPage> {
                   child: InteractiveViewer(
                     minScale: 1,
                     maxScale: 4,
-                    child: pagePhoto.localFile != null
-                        ? Image.file(
-                            pagePhoto.localFile!,
+                    child: pagePhoto.localPath != null
+                        ? LocalPhotoImage(
+                            reference: pagePhoto.localPath!,
                             fit: BoxFit.contain,
-                            errorBuilder: (_, _, _) => const _ImageError(),
                           )
                         : RemoteImage(
                             url: pagePhoto.url!,

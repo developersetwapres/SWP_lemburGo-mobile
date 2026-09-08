@@ -1,8 +1,15 @@
 abstract final class ApiConfig {
-  static const baseUrl = 'https://10.1.3.86/api'; //Final
-  // static const baseUrl = 'http://10.0.2.2:8000/api'; //Pixel 8
-  // static const baseUrl = 'http://10.1.53.20:8000/api';  //Sesama wlan
-  // static const baseUrl = 'http://127.0.0.1:8000/api';   // db
+  /// Configure a full endpoint with `--dart-define=API_BASE_URL=...`.
+  /// Same-origin Web deployments can keep the safe `/api` default.
+  static const baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: '/api',
+  );
+  /// Optional browser-compatible reverse-geocoding endpoint. It receives
+  /// `lat`/`lng` and returns `road`, `districtCity`, and `province`.
+  static const reverseGeocodingUrl = String.fromEnvironment(
+    'REVERSE_GEOCODING_URL',
+  );
   static const connectTimeout = Duration(seconds: 20);
   static const receiveTimeout = Duration(seconds: 30);
 

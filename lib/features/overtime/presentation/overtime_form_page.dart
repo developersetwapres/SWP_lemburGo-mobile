@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -100,7 +99,7 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
     if (!mounted || mode == null) return;
     await _applyTimestamp(
       slot: slot,
-      photo: XFile(photo.sourceFile.path),
+      photo: XFile.fromData(photo.bytes, name: photo.fileName),
       mode: mode,
     );
   }
@@ -333,10 +332,8 @@ class _OvertimeFormPageState extends State<OvertimeFormPage> {
       children: [
         PhotoUploadCard(
           label: label,
-          photoFile: photo?.file,
-          existingImageFile: photo == null && localPath != null
-              ? File(localPath)
-              : null,
+          photoBytes: photo?.bytes,
+          existingImageReference: photo == null ? localPath : null,
           existingImageUrl: photo == null ? existingUrl : null,
           timestamp: photo?.timestamp ?? existingTimestamp,
           modeLabel: switch (photo?.mode) {

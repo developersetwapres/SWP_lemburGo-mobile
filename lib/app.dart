@@ -210,50 +210,42 @@ class _AppShellState extends State<AppShell> {
       if (snapshot.connectionState != ConnectionState.done) {
         return const _SessionSplash();
       }
-      return Scaffold(
-        body: Column(
-          children: [
-            SyncStatusBanner(
-              status: widget.overtimeRepository.syncStatus,
-              onRetry: widget.overtimeRepository.retryBlockedSync,
-            ),
-            Expanded(
-              child: IndexedStack(
-                index: _selectedIndex,
-                children: [
-                  HomePage(
-                    user: widget.authController.user!,
-                    repository: widget.overtimeRepository,
-                    onStart: _openOvertimeForm,
-                    onContinue: _openOvertimeForm,
-                    onLogout: _logout,
-                    onSessionExpired: _expireSession,
-                  ),
-                  HistoryPage(
-                    repository: widget.overtimeRepository,
-                    onEdit: _openOvertimeForm,
-                    onSessionExpired: _expireSession,
-                    isActive: _selectedIndex == 1,
-                  ),
-                  CalendarPage(
-                    controller: _calendarController,
-                    repository: widget.overtimeRepository,
-                    onSessionExpired: _expireSession,
-                    isActive: _selectedIndex == 2,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        bottomNavigationBar: AppBottomNavigation(
-          selectedIndex: _selectedIndex,
-          onDestinationSelected: (index) {
-            setState(() => _selectedIndex = index);
-          },
-        ),
-      );
+      return LayoutBuilder(builder: (context, constraints) {
+        final desktop = constraints.maxWidth >= 840;
+        final content = IndexedStack(index: _selectedIndex, children: [
+          HomePage(user: widget.authController.user!, repository: widget.overtimeRepository, onStart: _openOvertimeForm, onContinue: _openOvertimeForm, onLogout: _logout, onSessionExpired: _expireSession),
+          HistoryPage(repository: widget.overtimeRepository, onEdit: _openOvertimeForm, onSessionExpired: _expireSession, isActive: _selectedIndex == 1),
+          CalendarPage(controller: _calendarController, repository: widget.overtimeRepository, onSessionExpired: _expireSession, isActive: _selectedIndex == 2),
+        ]);
+        return Scaffold(
+          body: Column(children: [
+            SyncStatusBanner(status: widget.overtimeRepository.syncStatus, onRetry: widget.overtimeRepository.retryBlockedSync),
+            Expanded(child: Row(children: [
+              if (desktop) _DesktopNavigation(selectedIndex: _selectedIndex, onSelected: (index) => setState(() => _selectedIndex = index)),
+              Expanded(child: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 1280), child: content))),
+            ])),
+          ]),
+          bottomNavigationBar: desktop ? null : AppBottomNavigation(selectedIndex: _selectedIndex, onDestinationSelected: (index) => setState(() => _selectedIndex = index)),
+        );
+      });
     },
+  );
+}
+
+class _DesktopNavigation extends StatelessWidget {
+  const _DesktopNavigation({required this.selectedIndex, required this.onSelected});
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+  @override
+  Widget build(BuildContext context) => NavigationRail(
+    selectedIndex: selectedIndex,
+    onDestinationSelected: onSelected,
+    labelType: NavigationRailLabelType.all,
+    destinations: const [
+      NavigationRailDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: Text('Home')),
+      NavigationRailDestination(icon: Icon(Icons.history_outlined), selectedIcon: Icon(Icons.history_rounded), label: Text('History')),
+      NavigationRailDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month_rounded), label: Text('Kalender')),
+    ],
   );
 }
 

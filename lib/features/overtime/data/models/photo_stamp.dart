@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 enum PhotoSlot { activity, checkout }
 
@@ -76,14 +76,15 @@ class ManualTimestampData {
 
 class StampedPhoto {
   const StampedPhoto({
-    required this.file,
-    required this.sourceFile,
+    required this.bytes,
+    required this.fileName,
     required this.timestamp,
     required this.address,
     required this.mode,
   });
-  final File file;
-  final File sourceFile;
+  /// Byte data makes browser camera/file-picker output independent of a path.
+  final Uint8List bytes;
+  final String fileName;
   final DateTime timestamp;
   final DeviceAddress address;
   final PhotoStampMode mode;

@@ -1,7 +1,7 @@
-import 'dart:io';
+import 'package:sqflite/sqflite.dart';
 
-import 'package:path/path.dart' as path;
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'offline_database_platform.dart'
+    if (dart.library.html) 'offline_database_web.dart' as platform;
 
 /// The on-device source of truth for all business data. SQLite is used instead
 /// of a key-value cache because each local mutation and its queue entry must be
@@ -15,8 +15,8 @@ class OfflineDatabase {
     DatabaseFactory? factory,
     String? databasePath,
   }) async {
-    final resolvedFactory = factory ?? _platformFactory();
-    final resolvedPath = databasePath ?? await _defaultPath();
+    final resolvedFactory = factory ?? await platform.databaseFactory();
+    final resolvedPath = databasePath ?? await platform.defaultDatabasePath();
     return resolvedFactory.openDatabase(
       resolvedPath,
       options: OpenDatabaseOptions(
@@ -26,17 +26,6 @@ class OfflineDatabase {
       ),
     );
   }
-
-  static DatabaseFactory _platformFactory() {
-    if (Platform.isWindows || Platform.isLinux) {
-      sqfliteFfiInit();
-      return databaseFactoryFfi;
-    }
-    return databaseFactory;
-  }
-
-  static Future<String> _defaultPath() async =>
-      path.join(await getDatabasesPath(), 'lemburnakit_offline.db');
 
   static Future<void> _create(Database db, int version) async {
     await db.execute('''

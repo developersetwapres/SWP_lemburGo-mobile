@@ -1,11 +1,9 @@
-import 'dart:io';
-
-import 'package:dio/io.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/services.dart';
 
 import '../config/api_config.dart';
 import '../storage/token_storage.dart';
+import 'api_client_platform.dart'
+    if (dart.library.html) 'api_client_web.dart' as platform;
 import 'api_exception.dart';
 
 class ApiClient {
@@ -14,20 +12,7 @@ class ApiClient {
   final Dio dio;
 
   static Future<ApiClient> create(TokenStorage tokenStorage) async {
-    final caData = await rootBundle.load('assets/certs/ca.crt');
-
-    final securityContext = SecurityContext(withTrustedRoots: false);
-    securityContext.setTrustedCertificatesBytes(caData.buffer.asUint8List());
-
-    final httpClientAdapter = IOHttpClientAdapter(
-      createHttpClient: () {
-        final client = HttpClient(context: securityContext);
-        client.badCertificateCallback = null;
-        return client;
-      },
-    );
-
-    final dio = Dio(
+    final dio = await platform.createPlatformDio(
       BaseOptions(
         baseUrl: ApiConfig.baseUrl,
         connectTimeout: ApiConfig.connectTimeout,
@@ -35,8 +20,6 @@ class ApiClient {
         headers: const {'Accept': 'application/json'},
       ),
     );
-
-    dio.httpClientAdapter = httpClientAdapter;
 
     final apiClient = ApiClient._(dio);
 

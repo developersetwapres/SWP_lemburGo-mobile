@@ -44,7 +44,12 @@ dependencies:
   path_provider: ^2.1.6
   path: ^1.9.1
   sqflite: ^2.4.3
+  # Public SQL API type shared by the mobile, desktop, and Web factories.
+  sqflite_common: ^2.5.4
   sqflite_common_ffi: ^2.4.2+1
+  # Browser database backed by IndexedDB. It exposes the same SQL interface as
+  # sqflite, so the offline queue can keep its transactional schema on Web.
+  sqflite_common_ffi_web: ^1.1.2
   connectivity_plus: ^7.3.1
   uuid: ^4.6.0
 dev_dependencies:

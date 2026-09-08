@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:dio/dio.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../../core/offline/local_photo_store.dart';
 import '../../calendar/data/models/calendar_overtime.dart';
 import '../../history/data/models/overtime_history.dart';
 import 'models/draft_overtime.dart';
@@ -207,13 +206,12 @@ class RemoteOvertimeApi implements OvertimeRemoteGateway {
   }
 
   Future<MultipartFile> _photoFile(String? localPath, String field) async {
-    if (localPath == null || !await File(localPath).exists()) {
+    if (localPath == null) {
       throw StateError('File $field yang menunggu upload tidak ditemukan.');
     }
-    return MultipartFile.fromFile(
-      localPath,
-      filename: '$field${_extension(localPath)}',
-    );
+    final bytes = await readLocalPhoto(localPath);
+    if (bytes == null) throw StateError('File $field yang menunggu upload tidak ditemukan.');
+    return MultipartFile.fromBytes(bytes, filename: '$field${_extension(localPath)}');
   }
 
   String _formatDate(DateTime date) =>

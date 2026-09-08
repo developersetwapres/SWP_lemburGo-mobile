@@ -271,7 +271,8 @@ void main() {
       final persisted = await store.persist(
         ownerId: 'pegawai-a',
         localOvertimeId: 'local-1',
-        source: source,
+        bytes: await source.readAsBytes(),
+        fileName: source.path.split(Platform.pathSeparator).last,
         slot: 'activity',
       );
       expect(File(persisted).existsSync(), isTrue);
@@ -297,7 +298,8 @@ void main() {
       final permanent = await photoStore.persist(
         ownerId: 'pegawai-a',
         localOvertimeId: 'local-photo',
-        source: temporary,
+        bytes: await temporary.readAsBytes(),
+        fileName: temporary.path.split(Platform.pathSeparator).last,
         slot: 'activity',
       );
       await fixture.store.createLocal(

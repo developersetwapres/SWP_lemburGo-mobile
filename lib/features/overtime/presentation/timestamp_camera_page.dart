@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -96,8 +97,12 @@ class _TimestampCameraPageState extends State<TimestampCameraPage>
         enableAudio: false,
       );
       await controller.initialize();
-      await controller.lockCaptureOrientation(DeviceOrientation.portraitUp);
-      await controller.setFlashMode(_flashMode);
+      // Browsers own orientation and most cameras expose no controllable
+      // flash. camera_web remains usable without either native-only feature.
+      if (!kIsWeb) {
+        await controller.lockCaptureOrientation(DeviceOrientation.portraitUp);
+        await controller.setFlashMode(_flashMode);
+      }
       if (!mounted) {
         await controller.dispose();
         return;
@@ -249,15 +254,16 @@ class _TimestampCameraPageState extends State<TimestampCameraPage>
                         : () => Navigator.of(context).pop(),
                   ),
                   const Spacer(),
-                  _CameraIconButton(
-                    tooltip: _flashMode == FlashMode.torch
-                        ? 'Matikan lampu'
-                        : 'Nyalakan lampu',
-                    icon: _flashMode == FlashMode.torch
-                        ? Icons.flash_on_rounded
-                        : Icons.flash_off_rounded,
-                    onPressed: _isCapturing ? null : _toggleFlash,
-                  ),
+                  if (!kIsWeb)
+                    _CameraIconButton(
+                      tooltip: _flashMode == FlashMode.torch
+                          ? 'Matikan lampu'
+                          : 'Nyalakan lampu',
+                      icon: _flashMode == FlashMode.torch
+                          ? Icons.flash_on_rounded
+                          : Icons.flash_off_rounded,
+                      onPressed: _isCapturing ? null : _toggleFlash,
+                    ),
                 ],
               ),
             ),
