@@ -154,11 +154,7 @@ class SyncEngine {
         _status.update(hasNetworkTransport: false, apiReachable: false);
         return;
       }
-      _status.update(
-        hasNetworkTransport: true,
-        isSyncing: true,
-        clearError: true,
-      );
+      _status.update(hasNetworkTransport: true, isSyncing: true);
       var blockedByAuthentication = false;
       while (!_disposed && _ownerId == ownerId) {
         final operations = await _localStore.readyOperations(ownerId);
@@ -310,9 +306,12 @@ class SyncEngine {
       );
       final year = await _remoteApi.fetchYearOvertimeSummary();
       await _localStore.saveYearSummary(ownerId: ownerId, summary: year);
+      // A successful snapshot refresh does not mean that an earlier queued
+      // mutation succeeded. Keep its error visible until that queue is empty.
+      final pendingCount = await _localStore.pendingOperationCount(ownerId);
       _status.update(
         apiReachable: true,
-        clearError: true,
+        clearError: pendingCount == 0,
         lastSuccessfulSyncAt: DateTime.now(),
       );
     } on ApiException catch (error) {

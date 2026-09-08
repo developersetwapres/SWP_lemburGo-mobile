@@ -26,18 +26,28 @@ class SyncStatusBanner extends StatelessWidget {
           status.lastError != null;
       if (!shouldShow) return const SizedBox.shrink();
       final offline = !status.hasNetworkTransport || !status.apiReachable;
+      final error = status.lastError?.trim();
+      final hasError = error != null && error.isNotEmpty;
       final color = status.isSyncing
           ? AppColors.skyBlue
+          : hasError
+          ? AppColors.error
           : offline
           ? AppColors.warning
           : AppColors.skyBlue;
       final icon = status.isSyncing
           ? Icons.sync_rounded
+          : hasError
+          ? Icons.error_outline_rounded
           : offline
           ? Icons.cloud_off_outlined
           : Icons.cloud_upload_outlined;
       final text = status.isSyncing
           ? 'Menyinkronkan perubahan…'
+          : hasError
+          ? status.pendingCount == 0
+                ? 'Sinkronisasi gagal: $error'
+                : '${status.pendingCount} perubahan belum tersinkron. $error'
           : offline
           ? status.pendingCount == 0
                 ? 'Mode offline — data tersimpan di perangkat'

@@ -234,14 +234,15 @@ void main() {
       );
       final remote = _FakeRemote(
         createError: const ApiException(
-          message: 'Data ditolak',
+          message: 'Tanggal lembur sudah memiliki laporan.',
           statusCode: 422,
         ),
       );
+      final status = SyncStatus();
       final engine = SyncEngine(
         localStore: fixture.store,
         remoteApi: remote,
-        status: SyncStatus(),
+        status: status,
         onUnauthenticated: () async {},
         connectivityCheck: () async => [ConnectivityResult.wifi],
         connectivityChanges: const Stream.empty(),
@@ -254,6 +255,8 @@ void main() {
       final record = await fixture.store.byLocalId('pegawai-a', 'local-1');
       expect(record!.localSyncState, LocalSyncState.blocked);
       expect(await fixture.store.readyOperations('pegawai-a'), isEmpty);
+      expect(status.apiReachable, isTrue);
+      expect(status.lastError, 'Tanggal lembur sudah memiliki laporan.');
     },
   );
 
