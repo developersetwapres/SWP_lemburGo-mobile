@@ -3,7 +3,7 @@ abstract final class ApiConfig {
   /// Same-origin Web deployments can keep the safe `/api` default.
   static const baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://10.1.3.86:8001/api',
+    defaultValue: 'http://10.1.3.86:8001/api',
   );
 
   /// Optional browser-compatible reverse-geocoding endpoint. It receives
