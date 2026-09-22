@@ -313,11 +313,21 @@ class _MonthNavigator extends StatelessWidget {
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: isExporting ? null : onExport,
+            style: OutlinedButton.styleFrom(
+              backgroundColor: const Color.fromARGB(255, 185, 41, 41),
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: AppColors.errorLight,
+              disabledForegroundColor: AppColors.error,
+              side: const BorderSide(color: AppColors.error),
+            ),
             icon: isExporting
                 ? const SizedBox(
                     width: 17,
                     height: 17,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.error,
+                    ),
                   )
                 : const Icon(Icons.picture_as_pdf_outlined),
             label: Text(
